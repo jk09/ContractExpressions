@@ -82,14 +82,72 @@ static class Dbc
     }
 }
 
-class ContractResultVisitor : ExpressionVisitor
+static class ContractPatch
 {
+    public static T Result<T>(ContractContext context)
+    {
+        throw new NotImplementedException();
+    }
+
+    public static T OldValue<T>(PropertyInfo property, ContractContext context)
+    {
+        throw new NotImplementedException();
+
+    }
+}
+
+class ContractResultPatchVisitor : ExpressionVisitor
+{
+    private readonly Expression _contractContextArg;
+    public ContractResultPatchVisitor(Expression contractContextArg)
+    {
+        _contractContextArg = contractContextArg;
+    }
+
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         if (node.Method.DeclaringType == typeof(Contract) && node.Method.Name == "Result")
         {
-            node.Dump("result");
+            var patchMethodGen = typeof(ContractPatch).GetMethod("Result", 1, new Type[] { typeof(ContractContext) });
+            var patchMethod = patchMethodGen!.MakeGenericMethod(node.Method.ReturnType);
+
+            var e = Expression.Call(null, patchMethod, _contractContextArg);
+            return e;
         }
+
+        return base.VisitMethodCall(node);
+    }
+}
+
+class ContractOldValuePatchVisitor : ExpressionVisitor
+{
+    private readonly Expression _contractContextArg;
+    public ContractOldValuePatchVisitor(Expression contractContextArg)
+    {
+        _contractContextArg = contractContextArg;
+    }
+
+    protected override Expression VisitMethodCall(MethodCallExpression node)
+    {
+        if (node.Method.DeclaringType == typeof(Contract) && node.Method.Name == "OldValue")
+        {
+            var patchMethodGen = typeof(ContractPatch).GetMethod("OldValue", 1, new Type[] { typeof(PropertyInfo), typeof(ContractContext) });
+            var patchMethod = patchMethodGen!.MakeGenericMethod(node.Method.ReturnType);
+
+            var valueExpr = node.Arguments[0];
+
+            if (valueExpr is MemberExpression oldValueMemberExpr && oldValueMemberExpr.Member is PropertyInfo propertyInfo)
+            {
+                var e = Expression.Call(null, patchMethod, Expression.Constant(propertyInfo, typeof(PropertyInfo)), _contractContextArg);
+                return e;
+
+            }
+            else
+            {
+                throw new NotImplementedException($"Cannot handle old value expression {valueExpr}");
+            }
+        }
+
         return base.VisitMethodCall(node);
     }
 }
@@ -119,6 +177,13 @@ class ContractOldValueVisitor : ExpressionVisitor
         return base.VisitMethodCall(node);
     }
 
+}
+
+class ContractContext
+{
+    public object Result { get; set; }
+
+    public Dictionary<MemberInfo, object> OldValues { get; set; }
 }
 
 class DbcDefVisitor : ExpressionVisitor
@@ -162,10 +227,6 @@ class DbcDefVisitor : ExpressionVisitor
             else if (node.Method.Name == "Ensures")
             {
                 var contractBody = node.Arguments[0];
-                var contract = Expression.Lambda(contractBody, $"Ensures_1", _contractParameters);
-                var postconditionDlg = contract.Compile();
-
-                Postconditions.Add(postconditionDlg);
 
                 var oldValueVisitor = new ContractOldValueVisitor();
                 oldValueVisitor.Visit(contractBody);
@@ -182,6 +243,23 @@ class DbcDefVisitor : ExpressionVisitor
                     }
                 }
 
+                var contractContextParam = Expression.Parameter(typeof(ContractContext), "contractContext");
+
+                var resultPatcher = new ContractResultPatchVisitor(contractContextParam);
+                var contractBodyPatch1 = resultPatcher.Visit(contractBody);
+
+                var oldValuePatcher = new ContractOldValuePatchVisitor(contractContextParam);
+                var contractBodyPatch2 = oldValuePatcher.Visit(contractBodyPatch1);
+
+
+                var postconditionParams = new List<ParameterExpression>();
+                postconditionParams.AddRange(_contractParameters!);
+                postconditionParams.Add(contractContextParam);
+
+                var postcondition = Expression.Lambda(contractBodyPatch2, $"Ensures_1", postconditionParams);
+                var postconditionDlg = postcondition.Compile();
+
+                Postconditions.Add(postconditionDlg);
 
             }
         }
