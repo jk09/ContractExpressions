@@ -126,6 +126,8 @@ class DbcDefVisitor : ExpressionVisitor
     private IList<ParameterExpression>? _contractParameters;
     private readonly Type _contractType;
 
+    public readonly List<Delegate> Preconditions = new();
+    public readonly List<Delegate> Postconditions = new();
     public readonly Dictionary<PropertyInfo, Delegate> OldValueCollectors = new();
 
     public DbcDefVisitor(Type contractType)
@@ -154,15 +156,16 @@ class DbcDefVisitor : ExpressionVisitor
 
                 var contract = Expression.Lambda(contractBody, $"Requires_1", _contractParameters);
 
-                var dlg = contract.Compile();
-
-                dlg.DynamicInvoke(null, "").Dump("outcome");
+                var preconditionDlg = contract.Compile();
+                Preconditions.Add(preconditionDlg);
             }
             else if (node.Method.Name == "Ensures")
             {
                 var contractBody = node.Arguments[0];
                 var contract = Expression.Lambda(contractBody, $"Ensures_1", _contractParameters);
-                contract.Dump("ensures");
+                var postconditionDlg = contract.Compile();
+
+                Postconditions.Add(postconditionDlg);
 
                 var oldValueVisitor = new ContractOldValueVisitor();
                 oldValueVisitor.Visit(contractBody);
@@ -171,7 +174,6 @@ class DbcDefVisitor : ExpressionVisitor
                 {
                     if (!OldValueCollectors.ContainsKey(oldValueMember))
                     {
-                        //var thisExpr = _contractParameters![0];
                         var thisParamExpr = Expression.Parameter(_contractType, "thisContract");
                         var collector = Expression.Lambda(Expression.Property(thisParamExpr, oldValueMember), thisParamExpr);
                         var dlg = collector.Compile();
