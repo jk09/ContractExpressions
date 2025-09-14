@@ -26,7 +26,7 @@ class MyList : IMyList
 
     public int Add(object? value)
     {
-        throw new NotImplementedException();
+        return 1;
     }
 
     public void Clear()
@@ -94,8 +94,8 @@ public static class Dbc
             var visitor = new DbcDefVisitor(typeof(TIntf));
             visitor.Visit(def);
 
-            contracts.Preconditions.AddRange(visitor.Preconditions);
-            contracts.Postconditions.AddRange(visitor.Postconditions);
+            //contracts.Preconditions.Merge(visitor.Preconditions);
+            //contracts.Postconditions.Merge(visitor.Postconditions);
 
             foreach (var (k, v) in visitor.OldValueCollectors)
             {
@@ -132,8 +132,8 @@ static class ContractRegistry
 
 class Contracts
 {
-    public readonly List<Delegate> Preconditions = new();
-    public readonly List<Delegate> Postconditions = new();
+    public readonly Dictionary<MethodInfo, IList<Delegate>> Preconditions = new();
+    public readonly Dictionary<MethodInfo, IList<Delegate>> Postconditions = new();
     public readonly Dictionary<PropertyInfo, Delegate> OldValueCollectors = new();
 }
 
@@ -170,7 +170,9 @@ class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
-        throw new NotImplementedException();
+        var preconditions = _contracts.Preconditions[targetMethod];
+
+        return null;
     }
 
     public static TIntf Make(TIntf target)
@@ -287,6 +289,32 @@ class ContractContext
     public Dictionary<MemberInfo, object> OldValues { get; set; }
 }
 
+static class CollectionExtensions
+{
+    public static void AddItem<TKey, TItemValue>(this IDictionary<TKey, IList<TItemValue>> dict, TKey key, TItemValue item)
+    {
+        if (!dict.ContainsKey(key))
+        {
+            dict.Add(key, new List<TItemValue>());
+        }
+
+        dict[key].Add(item);
+    }
+
+    public static void Merge<TKey, TItemValue>(this IDictionary<TKey, IList<TItemValue>> dict, IDictionary<TKey, IList<TItemValue>> dict2)
+    {
+        foreach (var (k, lst) in dict2)
+        {
+            foreach (var v in lst)
+            {
+                dict.AddItem(k, v);
+            }
+        }
+    }
+
+
+}
+
 class DbcDefVisitor : ExpressionVisitor
 {
     private IList<ParameterExpression>? _contractParameters;
@@ -300,6 +328,7 @@ class DbcDefVisitor : ExpressionVisitor
     {
         _contractType = contractType;
     }
+
     public override Expression? Visit(Expression? node)
     {
         if (_contractParameters == null && node is LambdaExpression lambda)
@@ -323,6 +352,7 @@ class DbcDefVisitor : ExpressionVisitor
                 var contract = Expression.Lambda(contractBody, $"Requires_1", _contractParameters);
 
                 var preconditionDlg = contract.Compile();
+
                 Preconditions.Add(preconditionDlg);
             }
             else if (node.Method.Name == "Ensures")
