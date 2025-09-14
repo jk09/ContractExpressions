@@ -1,17 +1,83 @@
 #define CONTRACTS_FULL
 
 
-var proxy = Dbc.Make<IList>(new Collection<string>());
+var proxy = Dbc.Make<IMyList>(new MyList());
+proxy.Add("");
 
+[ContractClass(typeof(ListContracts))]
+interface IMyList : IList
+{
 
-[ContractClassFor(typeof(IList))]
+}
+
+class MyList : IMyList
+{
+    public object? this[int index] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+    public bool IsFixedSize => throw new NotImplementedException();
+
+    public bool IsReadOnly => throw new NotImplementedException();
+
+    public int Count => throw new NotImplementedException();
+
+    public bool IsSynchronized => throw new NotImplementedException();
+
+    public object SyncRoot => throw new NotImplementedException();
+
+    public int Add(object? value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Clear()
+    {
+        throw new NotImplementedException();
+    }
+
+    public bool Contains(object? value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void CopyTo(Array array, int index)
+    {
+        throw new NotImplementedException();
+    }
+
+    public IEnumerator GetEnumerator()
+    {
+        throw new NotImplementedException();
+    }
+
+    public int IndexOf(object? value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Insert(int index, object? value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Remove(object? value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void RemoveAt(int index)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+[ContractClassFor(typeof(IMyList))]
 class ListContracts
 {
     public ListContracts()
     {
-        Dbc.Def(static (IList x, object a) => x.Add(a),
-                static (IList x, object a) => Contract.Requires(a is string ? !string.IsNullOrEmpty(a as string) : a != null),
-                static (IList x, object a) => Contract.Ensures(Contract.Result<int>() > 0 && x.Count > Contract.OldValue<int>(x.Count)));
+        Dbc.Def(static (IMyList x, object a) => x.Add(a),
+                static (IMyList x, object a) => Contract.Requires(a is string ? !string.IsNullOrEmpty(a as string) : a != null),
+                static (IMyList x, object a) => Contract.Ensures(Contract.Result<int>() > 0 && x.Count > Contract.OldValue<int>(x.Count)));
 
     }
 }
@@ -81,28 +147,24 @@ static class TypeExtensions
 
 }
 
-class ContractAwareProxy<T> : DispatchProxy where T : class
+class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 {
-    private T _target = null!;
-
-    private static readonly Contracts<T> _contracts;
-
+    private TIntf _target = null!;
+    private static readonly Contracts? _contracts;
 
     static ContractAwareProxy()
     {
-        var contractClassType = Assembly.GetExecutingAssembly().GetTypes().FirstOrDefault(t => t.IsContractClassFor(typeof(T)));
+        var contractClassType = typeof(TIntf).GetCustomAttributesData()
+            .FirstOrDefault(x => x.AttributeType == typeof(ContractClassAttribute))?.ConstructorArguments[0].Value as Type;
+
 
         if (contractClassType != null)
         {
             // run Dbc.Def(...) in ctor
             var contractClass = Activator.CreateInstance(contractClassType);
+            _contracts = ContractRegistry.Get(typeof(TIntf));
 
         }
-    }
-
-    public ContractAwareProxy()
-    {
-
     }
 
 
@@ -111,13 +173,13 @@ class ContractAwareProxy<T> : DispatchProxy where T : class
         throw new NotImplementedException();
     }
 
-    public static T Make(T target)
+    public static TIntf Make(TIntf target)
     {
-        object proxy = Create<T, ContractAwareProxy<T>>();
-        var dispatcher = (ContractAwareProxy<T>)proxy;
+        object proxy = Create<TIntf, ContractAwareProxy<TIntf>>();
+        var dispatcher = (ContractAwareProxy<TIntf>)proxy;
         dispatcher._target = target;
 
-        return (T)proxy;
+        return (TIntf)proxy;
     }
 }
 
