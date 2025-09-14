@@ -1,84 +1,123 @@
 #define CONTRACTS_FULL
 
-var listc = new ListContracts() as IList;
 
-Dbc.Def(static (IList x, object a) => x.Add(a),
-        static (IList x, object a) => Contract.Requires(a is string ? !string.IsNullOrEmpty(a as string) : a != null),
-        static (IList x, object a) => Contract.Ensures(Contract.Result<int>() > 0 && x.Count > Contract.OldValue<int>(x.Count)));
+var proxy = Dbc.Make<IList>(new Collection<string>());
 
-class ListContracts : IList
+
+[ContractClassFor(typeof(IList))]
+class ListContracts
 {
-    object? IList.this[int index] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-
-    bool IList.IsFixedSize => throw new NotImplementedException();
-
-    bool IList.IsReadOnly => throw new NotImplementedException();
-
-    int ICollection.Count => throw new NotImplementedException();
-
-    bool ICollection.IsSynchronized => throw new NotImplementedException();
-
-    object ICollection.SyncRoot => throw new NotImplementedException();
-
-    int IList.Add(object? value1)
+    public ListContracts()
     {
-        Contract.Requires(value1 != null);
-        Contract.Ensures(Contract.Result<int>() > 0);
+        Dbc.Def(static (IList x, object a) => x.Add(a),
+                static (IList x, object a) => Contract.Requires(a is string ? !string.IsNullOrEmpty(a as string) : a != null),
+                static (IList x, object a) => Contract.Ensures(Contract.Result<int>() > 0 && x.Count > Contract.OldValue<int>(x.Count)));
 
-        return 0;
-    }
-
-    void IList.Clear()
-    {
-        throw new NotImplementedException();
-    }
-
-    bool IList.Contains(object? value)
-    {
-        throw new NotImplementedException();
-    }
-
-    void ICollection.CopyTo(Array array, int index)
-    {
-        throw new NotImplementedException();
-    }
-
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        throw new NotImplementedException();
-    }
-
-    int IList.IndexOf(object? value)
-    {
-        throw new NotImplementedException();
-    }
-
-    void IList.Insert(int index, object? value)
-    {
-        throw new NotImplementedException();
-    }
-
-    void IList.Remove(object? value)
-    {
-        throw new NotImplementedException();
-    }
-
-    void IList.RemoveAt(int index)
-    {
-        throw new NotImplementedException();
     }
 }
 
-static class Dbc
+
+public static class Dbc
 {
-    public static void Def<TContract, TPar1, TRet>(Expression<Func<TContract, TPar1, TRet>> method, params Expression<Action<TContract, TPar1>>[] contracts)
+    public static void Def<TIntf, TPar1, TRet>(Expression<Func<TIntf, TPar1, TRet>> method, params Expression<Action<TIntf, TPar1>>[] contractDefs)
     {
-        foreach (var contract in contracts)
+        var contracts = new Contracts();
+
+        foreach (var def in contractDefs)
         {
-            var visitor = new DbcDefVisitor(typeof(TContract));
-            visitor.Visit(contract);
+            var visitor = new DbcDefVisitor(typeof(TIntf));
+            visitor.Visit(def);
+
+            contracts.Preconditions.AddRange(visitor.Preconditions);
+            contracts.Postconditions.AddRange(visitor.Postconditions);
+
+            foreach (var (k, v) in visitor.OldValueCollectors)
+            {
+                contracts.OldValueCollectors.Add(k, v);
+            }
+        }
+
+        ContractRegistry.Add(typeof(TIntf), contracts);
+    }
+
+    public static T Make<T>(T target) where T : class
+    {
+        if (!typeof(T).IsInterface) throw new ArgumentException($"Type {typeof(T)} must be an interface");
+
+        var proxy = ContractAwareProxy<T>.Make(target);
+        return proxy;
+    }
+}
+
+static class ContractRegistry
+{
+    private static Dictionary<Type, Contracts> Contracts { get; } = new();
+
+    public static void Add(Type intfType, Contracts contracts)
+    {
+        Contracts.Add(intfType, contracts);
+    }
+
+    public static Contracts Get(Type intfType)
+    {
+        return Contracts[intfType];
+    }
+}
+
+class Contracts
+{
+    public readonly List<Delegate> Preconditions = new();
+    public readonly List<Delegate> Postconditions = new();
+    public readonly Dictionary<PropertyInfo, Delegate> OldValueCollectors = new();
+}
+
+static class TypeExtensions
+{
+    public static bool IsContractClassFor(this Type cls, Type typeContractsAreFor)
+    {
+        return cls.GetCustomAttributesData().Any(a => a.AttributeType == typeof(ContractClassForAttribute)
+                                                && a.ConstructorArguments[0].ArgumentType == typeContractsAreFor);
+    }
+
+}
+
+class ContractAwareProxy<T> : DispatchProxy where T : class
+{
+    private T _target = null!;
+
+    private static readonly Contracts<T> _contracts;
+
+
+    static ContractAwareProxy()
+    {
+        var contractClassType = Assembly.GetExecutingAssembly().GetTypes().FirstOrDefault(t => t.IsContractClassFor(typeof(T)));
+
+        if (contractClassType != null)
+        {
+            // run Dbc.Def(...) in ctor
+            var contractClass = Activator.CreateInstance(contractClassType);
 
         }
+    }
+
+    public ContractAwareProxy()
+    {
+
+    }
+
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        throw new NotImplementedException();
+    }
+
+    public static T Make(T target)
+    {
+        object proxy = Create<T, ContractAwareProxy<T>>();
+        var dispatcher = (ContractAwareProxy<T>)proxy;
+        dispatcher._target = target;
+
+        return (T)proxy;
     }
 }
 
