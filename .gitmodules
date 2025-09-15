@@ -1,0 +1,3 @@
+[submodule "CodeContracts"]
+	path = CodeContracts
+	url = https://github.com/jk09/CodeContracts.git
