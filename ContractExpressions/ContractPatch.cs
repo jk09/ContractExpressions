@@ -27,19 +27,20 @@ internal static class ContractPatch
         }
     }
 
-    public static void Ensures(bool condition, string? message = null)
+    public static void Ensures(bool condition, string? message = null, Type? exceptionType = null)
     {
         if (!condition)
         {
-            throw new ContractViolationException(ContractFailureKind.Postcondition, message);
+            if (exceptionType != null)
+            {
+                throw (Exception)Activator.CreateInstance(exceptionType, message)!;
+            }
+            else
+            {
+                throw new ContractViolationException(ContractFailureKind.Postcondition, message);
+            }
         }
     }
 
-    public static void Ensures<TException>(bool condition, string? message = null) where TException : Exception
-    {
-        if (!condition)
-        {
-            throw (TException)Activator.CreateInstance(typeof(TException), message)!;
-        }
-    }
+
 }

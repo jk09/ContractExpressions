@@ -28,6 +28,38 @@ internal class DbcDefVisitor : ExpressionVisitor
 
     }
 
+    private void AddOldValueCollectors(Expression condition)
+    {
+        var oldValueVisitor = new ContractOldValueVisitor();
+        oldValueVisitor.Visit(condition);
+
+        foreach (var oldValueMember in oldValueVisitor.OldValueProperties)
+        {
+            if (!OldValueCollectors.ContainsKey(oldValueMember))
+            {
+                var thisParamExpr = Expression.Parameter(_contractType, "thisContract");
+                var collector = Expression.Lambda(Expression.Property(thisParamExpr, oldValueMember), thisParamExpr);
+                var dlg = collector.Compile();
+
+                OldValueCollectors.Add(oldValueMember, dlg);
+            }
+        }
+    }
+
+    private static Expression WithPatchedResults(Expression condition, ParameterExpression contractContextParam)
+    {
+        var resultPatcher = new ContractResultPatchVisitor(contractContextParam);
+        var patched = resultPatcher.Visit(condition);
+        return patched;
+    }
+
+    private static Expression WithPatchedOldValues(Expression condition, ParameterExpression contractContextParam)
+    {
+        var oldValuePatcher = new ContractOldValuePatchVisitor(contractContextParam);
+        var patched = oldValuePatcher.Visit(condition);
+        return patched;
+    }
+
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         if (node.Method.DeclaringType == typeof(Contract))
@@ -42,49 +74,41 @@ internal class DbcDefVisitor : ExpressionVisitor
 
                 var preconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Requires), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
 
-                var contract = Expression.Lambda(Expression.Call(null, preconditionPatch, condition, message, exceptionType), $"Requires_1", _contractParameters);
+
+                var preconditionParams = new List<ParameterExpression>(_contractParameters!);
+
+                var contract = Expression.Lambda(Expression.Call(null, preconditionPatch, condition, message, exceptionType), $"Requires_1", preconditionParams);
 
                 var contractDlg = contract.Compile();
 
                 Preconditions.Add(contractDlg);
             }
-            else if (node.Method.Name == "Ensures")
+            else if (node.Method.Name == nameof(Contract.Ensures))
             {
-                var contractBody = node.Arguments[0];
+                var condition = node.Arguments[0];
+                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
+                var exceptionType = node.Method.GetGenericArguments().Length > 0
+                    ? Expression.Constant(node.Method.GetGenericArguments()[0], typeof(Type))
+                    : Expression.Constant(null, typeof(Type));
 
-                var oldValueVisitor = new ContractOldValueVisitor();
-                oldValueVisitor.Visit(contractBody);
-
-                foreach (var oldValueMember in oldValueVisitor.OldValueProperties)
-                {
-                    if (!OldValueCollectors.ContainsKey(oldValueMember))
-                    {
-                        var thisParamExpr = Expression.Parameter(_contractType, "thisContract");
-                        var collector = Expression.Lambda(Expression.Property(thisParamExpr, oldValueMember), thisParamExpr);
-                        var dlg = collector.Compile();
-
-                        OldValueCollectors.Add(oldValueMember, dlg);
-                    }
-                }
+                AddOldValueCollectors(condition);
 
                 var contractContextParam = Expression.Parameter(typeof(ContractContext), "contractContext");
 
-                var resultPatcher = new ContractResultPatchVisitor(contractContextParam);
-                var contractBodyPatch1 = resultPatcher.Visit(contractBody);
+                var patchedCondition = WithPatchedOldValues(WithPatchedResults(condition, contractContextParam), contractContextParam);
 
-                var oldValuePatcher = new ContractOldValuePatchVisitor(contractContextParam);
-                var contractBodyPatch2 = oldValuePatcher.Visit(contractBodyPatch1);
+                var postconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Ensures), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
 
+                var postconditionParams = new List<ParameterExpression>(_contractParameters!)
+                {
+                    contractContextParam
+                };
 
-                var postconditionParams = new List<ParameterExpression>();
-                postconditionParams.AddRange(_contractParameters!);
-                postconditionParams.Add(contractContextParam);
+                var contract = Expression.Lambda(Expression.Call(null, postconditionPatch, patchedCondition, message, exceptionType), $"Ensures_1", postconditionParams);
 
-                var ensuresExpr = Expression.Call(null, typeof(ContractPatch).GetMethod("Ensures")!, contractBodyPatch2, Expression.Constant(null, typeof(string)));
-                var postcondition = Expression.Lambda(ensuresExpr, $"Ensures_1", postconditionParams);
-                var postconditionDlg = postcondition.Compile();
+                var contractDlg = contract.Compile();
 
-                Postconditions.Add(postconditionDlg);
+                Postconditions.Add(contractDlg);
 
             }
         }
