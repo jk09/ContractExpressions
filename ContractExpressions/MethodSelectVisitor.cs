@@ -3,7 +3,7 @@ using System.Reflection;
 
 internal class MethodSelectVisitor : ExpressionVisitor
 {
-    public MethodInfo? Method { get; private set; }
+    public MethodInfo Method { get; private set; } = null!;
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {

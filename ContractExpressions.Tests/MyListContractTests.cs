@@ -1,23 +1,36 @@
-#define CONTRACTS_FULL
+﻿#define CONTRACTS_FULL
 
-
+using System.Collections;
 using System.Diagnostics.Contracts;
 
-var proxy = Dbc.Make<IMyList>(new MyList());
-proxy.Add("");
+namespace ContractExpressions.Tests;
+
+public class MyListContractTests
+{
+    private readonly IMyList _proxy;
+    public MyListContractTests()
+    {
+        _proxy = Dbc.Make<IMyList>(new MyList());
+
+    }
+
+    [Fact]
+    public void Test1()
+    {
+        _proxy.Add("");
+
+    }
+}
+
 
 [ContractClass(typeof(ListContracts))]
 interface IMyList : IList<object>
 {
-    int Add(object x);
+
 }
 
 class MyList : List<object>, IMyList
 {
-    int IMyList.Add(object x)
-    {
-        return (this as IList).Add(x);
-    }
 }
 
 [ContractClassFor(typeof(IMyList))]
