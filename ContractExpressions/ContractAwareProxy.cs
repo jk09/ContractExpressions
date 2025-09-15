@@ -5,7 +5,7 @@ public sealed class ContractViolationException : Exception
 {
     public ContractFailureKind ContractFailureKind { get; init; }
 
-    public ContractViolationException(ContractFailureKind kind) : base()
+    public ContractViolationException(ContractFailureKind kind, string? message = null) : base(message)
     {
         ContractFailureKind = kind;
     }
@@ -52,16 +52,12 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                 };
 
                 if (args != null)
-                    preconditionArgs.AddRange(args);
-
-                var preconditionResult = p.DynamicInvoke(preconditionArgs.ToArray());
-
-                var preconditionBoolResult = preconditionResult as bool? ?? false;
-
-                if (!preconditionBoolResult)
                 {
-                    throw new ContractViolationException(ContractFailureKind.Precondition);
+                    preconditionArgs.AddRange(args);
                 }
+
+                p.DynamicInvoke(preconditionArgs.ToArray());
+
             }
 
         }
@@ -103,13 +99,7 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
             }
             postconditionArgs.Add(ctx);
 
-            var postconditionResult = p.DynamicInvoke(postconditionArgs.ToArray());
-            var postconditionBoolResult = postconditionResult as bool? ?? false;
-
-            if (!postconditionBoolResult)
-            {
-                throw new ContractViolationException(ContractFailureKind.Postcondition);
-            }
+            p.DynamicInvoke(postconditionArgs.ToArray());
         }
 
         return result;

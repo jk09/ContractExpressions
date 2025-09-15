@@ -36,7 +36,9 @@ internal class DbcDefVisitor : ExpressionVisitor
             {
                 var contractBody = node.Arguments[0];
 
-                var contract = Expression.Lambda(contractBody, $"Requires_1", _contractParameters);
+                var requiresExpr = Expression.Call(null, typeof(ContractPatch).GetMethod("Requires")!, contractBody, Expression.Constant(null, typeof(string)));
+
+                var contract = Expression.Lambda(requiresExpr, $"Requires_1", _contractParameters);
 
                 var preconditionDlg = contract.Compile();
 
@@ -74,7 +76,8 @@ internal class DbcDefVisitor : ExpressionVisitor
                 postconditionParams.AddRange(_contractParameters!);
                 postconditionParams.Add(contractContextParam);
 
-                var postcondition = Expression.Lambda(contractBodyPatch2, $"Ensures_1", postconditionParams);
+                var ensuresExpr = Expression.Call(null, typeof(ContractPatch).GetMethod("Ensures")!, contractBodyPatch2, Expression.Constant(null, typeof(string)));
+                var postcondition = Expression.Lambda(ensuresExpr, $"Ensures_1", postconditionParams);
                 var postconditionDlg = postcondition.Compile();
 
                 Postconditions.Add(postconditionDlg);
