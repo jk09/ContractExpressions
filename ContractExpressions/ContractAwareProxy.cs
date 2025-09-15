@@ -1,7 +1,7 @@
 using System.Diagnostics.Contracts;
 using System.Reflection;
 
-public sealed class ContractViolationException : Exception
+internal sealed class ContractViolationException : Exception
 {
     public ContractFailureKind ContractFailureKind { get; init; }
 

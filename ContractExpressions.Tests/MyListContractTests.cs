@@ -39,6 +39,8 @@ class ListContracts
     public ListContracts()
     {
         Dbc.Def(static (IMyList x, object a) => x.Add(a),
+                static (IMyList x, object a) => Contract.Requires<ArgumentNullException>(a != null, "a must not be null"),
+
                 static (IMyList x, object a) => Contract.Ensures(Contract.Result<int>() > 0 && x.Count == 1 + Contract.OldValue<int>(x.Count)));
 
     }

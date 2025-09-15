@@ -32,17 +32,21 @@ internal class DbcDefVisitor : ExpressionVisitor
     {
         if (node.Method.DeclaringType == typeof(Contract))
         {
-            if (node.Method.Name == "Requires")
+            if (node.Method.Name == nameof(Contract.Requires))
             {
-                var contractBody = node.Arguments[0];
+                var condition = node.Arguments[0];
+                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
+                var exceptionType = node.Method.GetGenericArguments().Length > 0
+                    ? Expression.Constant(node.Method.GetGenericArguments()[0], typeof(Type))
+                    : Expression.Constant(null, typeof(Type));
 
-                var requiresExpr = Expression.Call(null, typeof(ContractPatch).GetMethod("Requires")!, contractBody, Expression.Constant(null, typeof(string)));
+                var preconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Requires), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
 
-                var contract = Expression.Lambda(requiresExpr, $"Requires_1", _contractParameters);
+                var contract = Expression.Lambda(Expression.Call(null, preconditionPatch, condition, message, exceptionType), $"Requires_1", _contractParameters);
 
-                var preconditionDlg = contract.Compile();
+                var contractDlg = contract.Compile();
 
-                Preconditions.Add(preconditionDlg);
+                Preconditions.Add(contractDlg);
             }
             else if (node.Method.Name == "Ensures")
             {
