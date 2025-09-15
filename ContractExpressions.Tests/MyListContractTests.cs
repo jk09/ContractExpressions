@@ -17,19 +17,19 @@ public class MyListContractTests
     [Fact]
     public void Test1()
     {
-        _proxy.Add("");
+        _proxy.Add(null);
 
     }
 }
 
 
 [ContractClass(typeof(ListContracts))]
-interface IMyList : IList<object>
+interface IMyList : IList
 {
 
 }
 
-class MyList : List<object>, IMyList
+class MyList : ArrayList, IMyList
 {
 }
 
@@ -39,8 +39,7 @@ class ListContracts
     public ListContracts()
     {
         Dbc.Def(static (IMyList x, object a) => x.Add(a),
-                static (IMyList x, object a) => Contract.Requires(a is string ? !string.IsNullOrEmpty(a as string) : a != null),
-                static (IMyList x, object a) => Contract.Ensures(Contract.Result<int>() >= 0 && x.Count > Contract.OldValue<int>(x.Count)));
+                static (IMyList x, object a) => Contract.Ensures(Contract.Result<int>() > 0 && x.Count == 1 + Contract.OldValue<int>(x.Count)));
 
     }
 }

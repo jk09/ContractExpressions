@@ -1,7 +1,17 @@
 using System.Diagnostics.Contracts;
 using System.Reflection;
 
-class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
+public sealed class ContractViolationException : Exception
+{
+    public ContractFailureKind ContractFailureKind { get; init; }
+
+    public ContractViolationException(ContractFailureKind kind) : base()
+    {
+        ContractFailureKind = kind;
+    }
+}
+
+internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 {
     private TIntf _target = null!;
     private static readonly ContractDelegates _contracts;
@@ -31,17 +41,29 @@ class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
         if (targetMethod == null) throw new ArgumentNullException(nameof(targetMethod));
 
         var ctx = new ContractContext();
-        var preconditions = _contracts.Preconditions[targetMethod];
 
-
-        foreach (var p in preconditions)
+        if (_contracts.Preconditions.TryGetValue(targetMethod, out var preconditions))
         {
-            var preconditionArgs = new List<object?>();
-            preconditionArgs.Add(_target);
-            if (args != null)
-                preconditionArgs.AddRange(args);
+            foreach (var p in preconditions)
+            {
+                var preconditionArgs = new List<object?>
+                {
+                    _target
+                };
 
-            var preconditionAns = p.DynamicInvoke(preconditionArgs.ToArray());
+                if (args != null)
+                    preconditionArgs.AddRange(args);
+
+                var preconditionResult = p.DynamicInvoke(preconditionArgs.ToArray());
+
+                var preconditionBoolResult = preconditionResult as bool? ?? false;
+
+                if (!preconditionBoolResult)
+                {
+                    throw new ContractViolationException(ContractFailureKind.Precondition);
+                }
+            }
+
         }
 
         var oldValuesCollectors = _contracts.OldValueCollectors;
@@ -54,31 +76,43 @@ class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
         }
 
         ctx.OldValues = oldValues;
+        object? result;
+
 
         try
         {
-            var result = targetMethod.Invoke(_target, args);
+            result = targetMethod.Invoke(_target, args);
 
             ctx.Result = result;
         }
         catch (TargetInvocationException ex)
         {
-            ;
+            throw ex.InnerException ?? ex;
         }
 
         var postconditions = _contracts.Postconditions[targetMethod];
         foreach (var p in postconditions)
         {
-            var postconditionArgs = new List<object?>();
-            postconditionArgs.Add(_target);
+            var postconditionArgs = new List<object?>
+            {
+                _target
+            };
             if (args != null)
+            {
                 postconditionArgs.AddRange(args);
+            }
             postconditionArgs.Add(ctx);
 
-            var postconditionAns = p.DynamicInvoke(postconditionArgs.ToArray());
+            var postconditionResult = p.DynamicInvoke(postconditionArgs.ToArray());
+            var postconditionBoolResult = postconditionResult as bool? ?? false;
+
+            if (!postconditionBoolResult)
+            {
+                throw new ContractViolationException(ContractFailureKind.Postcondition);
+            }
         }
 
-        return null;
+        return result;
     }
 
     public static TIntf Make(TIntf target)
