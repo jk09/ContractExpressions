@@ -111,6 +111,73 @@ public class MyListContractTests
         Assert.Equal(item1, array[1]);
         Assert.Equal(item2, array[2]);
     }
+
+    [Fact]
+    public void Indexer_Get_WithNegativeIndex_ThrowsException()
+    {
+        var item = new object();
+        _proxy.Add(item);
+        Assert.Throws<ContractViolationException>(() => _proxy[-1]);
+    }
+
+    [Fact]
+    public void Indexer_Get_WithIndexOutOfRange_ThrowsException()
+    {
+        var item = new object();
+        _proxy.Add(item);
+        Assert.Throws<ContractViolationException>(() => _proxy[1]);
+    }
+
+    [Fact]
+    public void Insert_WithNegativeIndex_ThrowsException()
+    {
+        Assert.Throws<ContractViolationException>(() => _proxy.Insert(-1, new object()));
+    }
+
+    [Fact]
+    public void Insert_WithIndexGreaterThanCount_ThrowsException()
+    {
+        _proxy.Add(new object());
+        Assert.Throws<ContractViolationException>(() => _proxy.Insert(2, new object()));
+    }
+
+    [Fact]
+    public void RemoveAt_WithNegativeIndex_ThrowsException()
+    {
+        _proxy.Add(new object());
+        Assert.Throws<ContractViolationException>(() => _proxy.RemoveAt(-1));
+    }
+
+    [Fact]
+    public void RemoveAt_WithIndexOutOfRange_ThrowsException()
+    {
+        _proxy.Add(new object());
+        Assert.Throws<ContractViolationException>(() => _proxy.RemoveAt(1));
+    }
+
+    [Fact]
+    public void CopyTo_WithNullArray_ThrowsException()
+    {
+        _proxy.Add(new object());
+        Assert.Throws<ContractViolationException>(() => _proxy.CopyTo(null, 0));
+    }
+
+    [Fact]
+    public void CopyTo_WithNegativeArrayIndex_ThrowsException()
+    {
+        _proxy.Add(new object());
+        var array = new object[5];
+        Assert.Throws<ContractViolationException>(() => _proxy.CopyTo(array, -1));
+    }
+
+    [Fact]
+    public void CopyTo_WithInsufficientArraySpace_ThrowsException()
+    {
+        _proxy.Add(new object());
+        _proxy.Add(new object());
+        var array = new object[2];
+        Assert.Throws<ContractViolationException>(() => _proxy.CopyTo(array, 1));
+    }
 }
 
 
