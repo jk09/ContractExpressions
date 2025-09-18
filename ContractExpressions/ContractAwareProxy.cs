@@ -35,6 +35,19 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
         }
     }
 
+    private void InvokeContract(Invokable contract, object?[] args, MethodInfo targetMethod)
+    {
+        try
+        {
+            contract.Delegate.DynamicInvoke(args);
+        }
+        catch (Exception ex)
+        {
+            ex.Data.Add("ContractViolation", $"'{targetMethod.DeclaringType?.FullName}::{targetMethod.Name}'; {contract.Representation}");
+            throw;
+        }
+    }
+
 
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
@@ -56,7 +69,7 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                     preconditionArgs.AddRange(args);
                 }
 
-                p.DynamicInvoke(preconditionArgs.ToArray());
+                InvokeContract(p, preconditionArgs.ToArray(), targetMethod);
 
             }
 
@@ -99,7 +112,7 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
             }
             postconditionArgs.Add(ctx);
 
-            p.DynamicInvoke(postconditionArgs.ToArray());
+            InvokeContract(p, postconditionArgs.ToArray(), targetMethod);
         }
 
         return result;

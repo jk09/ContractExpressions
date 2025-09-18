@@ -28,10 +28,10 @@ public static class Dbc
             visitor.Visit(def);
 
             foreach (var p in visitor.Preconditions)
-                contracts.Preconditions.AddItem(method, p);
+                contracts.Preconditions.AddItem(method, new Invokable { Representation = def.ToString(), Delegate = p });
 
             foreach (var p in visitor.Postconditions)
-                contracts.Postconditions.AddItem(method, p);
+                contracts.Postconditions.AddItem(method, new Invokable { Representation = def.ToString(), Delegate = p });
 
 
             foreach (var (k, v) in visitor.OldValueCollectors)

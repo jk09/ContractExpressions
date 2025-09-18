@@ -1,10 +1,17 @@
+using System.Dynamic;
+using System.Linq.Expressions;
 using System.Reflection;
+
+internal class Invokable
+{
+    public required string Representation { get; init; }
+    public required Delegate Delegate { get; init; }
+}
 
 internal class ContractDelegates
 {
-    public readonly Dictionary<MethodInfo, IList<Delegate>> Preconditions = new();
-    public readonly Dictionary<MethodInfo, IList<Delegate>> Postconditions = new();
-    public readonly Dictionary<PropertyInfo, Delegate> OldValueCollectors = new();
-
+    public IDictionary<MethodInfo, IList<Invokable>> Preconditions { get; } = new Dictionary<MethodInfo, IList<Invokable>>();
+    public IDictionary<MethodInfo, IList<Invokable>> Postconditions { get; } = new Dictionary<MethodInfo, IList<Invokable>>();
+    public IDictionary<PropertyInfo, Delegate> OldValueCollectors { get; } = new Dictionary<PropertyInfo, Delegate>();
     public static readonly ContractDelegates Empty = new();
 }
