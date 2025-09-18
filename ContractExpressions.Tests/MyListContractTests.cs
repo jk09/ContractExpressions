@@ -17,8 +17,8 @@ public class MyListContractTests
     [Fact]
     public void Test1()
     {
-        _proxy.Add(null);
-
+        var index = _proxy.Add(new object());
+        Assert.Equal(0, index);
     }
 }
 
@@ -39,7 +39,9 @@ class ListContracts
     public ListContracts()
     {
         Dbc.Def(static (IMyList x, object a) => x.Add(a),
-                static (IMyList x, object a) => Contract.Ensures(Contract.Result<int>() > 0),
+                static (IMyList x, object a) => Contract.Ensures(Contract.Result<int>() >= 0),
                 static (IMyList x, object a) => Contract.Ensures(x.Count == 1 + Contract.OldValue<int>(x.Count)));
     }
 }
+
+

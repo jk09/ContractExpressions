@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reflection;
 
@@ -10,6 +11,25 @@ internal sealed class ContractViolationException : Exception
         ContractFailureKind = kind;
     }
 }
+
+internal static class ExceptionExtensions
+{
+    public static void AddContractData(this ContractViolationException ex, string contractDescription)
+    {
+        ex.Data[typeof(ContractExceptionData)] = new ContractExceptionData(contractDescription);
+    }
+
+    public static ContractExceptionData? GetContractData(this ContractViolationException ex)
+    {
+        if (ex.Data.Contains(typeof(ContractExceptionData)))
+        {
+            return ex.Data[typeof(ContractExceptionData)] as ContractExceptionData;
+        }
+        return null;
+    }
+}
+
+internal record ContractExceptionData(string ContractDescription);
 
 internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 {
@@ -41,10 +61,11 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
         {
             contract.Delegate.DynamicInvoke(args);
         }
-        catch (Exception ex)
+        catch (TargetInvocationException ex) when (ex.InnerException is ContractViolationException innerEx)
         {
-            ex.Data.Add("ContractViolation", $"'{targetMethod.DeclaringType?.FullName}::{targetMethod.Name}'; {contract.Representation}");
-            throw;
+            innerEx.AddContractData($"'{targetMethod.DeclaringType?.FullName}::{targetMethod.Name}'; {contract.Representation}");
+
+            throw innerEx;
         }
     }
 
