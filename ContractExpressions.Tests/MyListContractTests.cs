@@ -15,10 +15,101 @@ public class MyListContractTests
     }
 
     [Fact]
-    public void Test1()
+    public void Add()
     {
         var index = _proxy.Add(new object());
         Assert.Equal(0, index);
+    }
+
+    [Fact]
+    public void Clear()
+    {
+        _proxy.Add(new object());
+        _proxy.Add(new object());
+        _proxy.Clear();
+        Assert.Empty(_proxy);
+    }
+
+    [Fact]
+    public void Contains_WhenItemExists_ReturnsTrue()
+    {
+        var item = new object();
+        _proxy.Add(item);
+        Assert.True(_proxy.Contains(item));
+    }
+
+    [Fact]
+    public void Contains_WhenItemDoesNotExist_ReturnsFalse()
+    {
+        var item = new object();
+        Assert.False(_proxy.Contains(item));
+    }
+
+    [Fact]
+    public void IndexOf_WhenItemExists_ReturnsCorrectIndex()
+    {
+        var item = new object();
+        _proxy.Add(new object());
+        _proxy.Add(item);
+        Assert.Equal(1, _proxy.IndexOf(item));
+    }
+
+    [Fact]
+    public void IndexOf_WhenItemDoesNotExist_ReturnsMinusOne()
+    {
+        var item = new object();
+        Assert.Equal(-1, _proxy.IndexOf(item));
+    }
+
+    [Fact]
+    public void Insert()
+    {
+        _proxy.Add(new object());
+        var item = new object();
+        _proxy.Insert(0, item);
+        Assert.Equal(2, _proxy.Count);
+        Assert.Equal(item, _proxy[0]);
+    }
+
+    [Fact]
+    public void Remove_WhenItemExists()
+    {
+        var item = new object();
+        _proxy.Add(item);
+        _proxy.Remove(item);
+        Assert.Empty(_proxy);
+    }
+
+    [Fact]
+    public void RemoveAt()
+    {
+        var item = new object();
+        _proxy.Add(item);
+        _proxy.RemoveAt(0);
+        Assert.Empty(_proxy);
+    }
+
+    [Fact]
+    public void Indexer_Get()
+    {
+        var item = new object();
+        _proxy.Add(item);
+        Assert.Equal(item, _proxy[0]);
+    }
+
+    [Fact]
+    public void CopyTo()
+    {
+        var item1 = new object();
+        var item2 = new object();
+        _proxy.Add(item1);
+        _proxy.Add(item2);
+
+        var array = new object[5];
+        _proxy.CopyTo(array, 1);
+
+        Assert.Equal(item1, array[1]);
+        Assert.Equal(item2, array[2]);
     }
 }
 

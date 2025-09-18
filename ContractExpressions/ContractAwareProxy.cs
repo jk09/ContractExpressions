@@ -120,20 +120,23 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
             throw ex.InnerException ?? ex;
         }
 
-        var postconditions = _contracts.Postconditions[targetMethod];
-        foreach (var p in postconditions)
+        if (_contracts.Postconditions.TryGetValue(targetMethod, out var postconditions))
         {
-            var postconditionArgs = new List<object?>
+            foreach (var p in postconditions)
+            {
+                var postconditionArgs = new List<object?>
             {
                 _target
             };
-            if (args != null)
-            {
-                postconditionArgs.AddRange(args);
-            }
-            postconditionArgs.Add(ctx);
+                if (args != null)
+                {
+                    postconditionArgs.AddRange(args);
+                }
+                postconditionArgs.Add(ctx);
 
-            InvokeContract(p, postconditionArgs.ToArray(), targetMethod);
+                InvokeContract(p, postconditionArgs.ToArray(), targetMethod);
+            }
+
         }
 
         return result;
