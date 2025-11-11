@@ -1,6 +1,8 @@
 using System.Diagnostics.Contracts;
 using System.Linq.Expressions;
 
+namespace ContractExpr;
+
 internal class ContractResultPatchVisitor : ExpressionVisitor
 {
     private readonly Expression _contractContextArg;

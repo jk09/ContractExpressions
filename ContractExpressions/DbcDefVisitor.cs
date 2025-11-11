@@ -2,6 +2,8 @@ using System.Diagnostics.Contracts;
 using System.Linq.Expressions;
 using System.Reflection;
 
+namespace ContractExpr;
+
 internal class DbcDefVisitor : ExpressionVisitor
 {
     private IList<ParameterExpression>? _contractParameters;

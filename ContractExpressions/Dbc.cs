@@ -1,5 +1,7 @@
 using System.Linq.Expressions;
 
+namespace ContractExpr;
+
 public static class Dbc
 {
     public static void Def<TIntf>(Expression<Action<TIntf>> methodExpr, params Expression<Action<TIntf>>[] contractDefExprs) where TIntf : class

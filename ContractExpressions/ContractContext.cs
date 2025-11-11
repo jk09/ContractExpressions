@@ -3,6 +3,8 @@
 
 using System.Reflection;
 
+namespace ContractExpr;
+
 internal class ContractContext
 {
     public object? Result { get; set; }

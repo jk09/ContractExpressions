@@ -2,6 +2,8 @@ using System.Diagnostics.Contracts;
 using System.Linq.Expressions;
 using System.Reflection;
 
+namespace ContractExpr;
+
 internal class ContractOldValuePatchVisitor : ExpressionVisitor
 {
     private readonly Expression _contractContextArg;

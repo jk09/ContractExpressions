@@ -1,3 +1,5 @@
+namespace ContractExpr;
+
 internal static class ContractRegistry
 {
     private static Dictionary<Type, ContractDelegates> Contracts { get; } = new();

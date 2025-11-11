@@ -1,5 +1,7 @@
 using System.Diagnostics.Contracts;
 
+namespace ContractExpr;
+
 internal static class TypeExtensions
 {
     public static bool IsContractClassFor(this Type cls, Type typeContractsAreFor)

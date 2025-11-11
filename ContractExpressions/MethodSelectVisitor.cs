@@ -1,6 +1,8 @@
 using System.Linq.Expressions;
 using System.Reflection;
 
+namespace ContractExpr;
+
 internal class MethodSelectVisitor : ExpressionVisitor
 {
     public MethodInfo Method { get; private set; } = null!;

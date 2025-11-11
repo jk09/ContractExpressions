@@ -2,6 +2,8 @@ using System.Dynamic;
 using System.Linq.Expressions;
 using System.Reflection;
 
+namespace ContractExpr;
+
 internal class Invokable
 {
     public required string Representation { get; init; }

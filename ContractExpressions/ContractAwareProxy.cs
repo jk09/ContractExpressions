@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reflection;
 
+namespace ContractExpr;
+
 internal sealed class ContractViolationException : Exception
 {
     public ContractFailureKind ContractFailureKind { get; init; }

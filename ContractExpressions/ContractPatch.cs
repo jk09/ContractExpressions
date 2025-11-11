@@ -1,5 +1,8 @@
 using System.Diagnostics.Contracts;
 using System.Reflection;
+
+namespace ContractExpr;
+
 internal static class ContractPatch
 {
     public static T? Result<T>(ContractContext context)

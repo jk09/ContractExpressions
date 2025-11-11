@@ -1,3 +1,4 @@
+namespace ContractExpr;
 
 internal static class CollectionExtensions
 {
