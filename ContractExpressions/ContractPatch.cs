@@ -1,7 +1,7 @@
 using System.Diagnostics.Contracts;
 using System.Reflection;
 
-namespace ContractExpr;
+namespace ContractExpressions;
 
 internal static class ContractPatch
 {

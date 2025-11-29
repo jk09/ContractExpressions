@@ -1,7 +1,7 @@
 using System.Diagnostics.Contracts;
 using System.Linq.Expressions;
 
-namespace ContractExpr;
+namespace ContractExpressions;
 
 internal class ContractResultPatchVisitor : ExpressionVisitor
 {

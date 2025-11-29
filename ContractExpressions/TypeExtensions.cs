@@ -1,6 +1,6 @@
 using System.Diagnostics.Contracts;
 
-namespace ContractExpr;
+namespace ContractExpressions;
 
 internal static class TypeExtensions
 {

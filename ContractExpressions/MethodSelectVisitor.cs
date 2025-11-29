@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace ContractExpr;
+namespace ContractExpressions;
 
 internal class MethodSelectVisitor : ExpressionVisitor
 {

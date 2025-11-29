@@ -2,70 +2,50 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reflection;
 
-namespace ContractExpr;
-
-internal sealed class ContractViolationException : Exception
-{
-    public ContractFailureKind ContractFailureKind { get; init; }
-
-    public ContractViolationException(ContractFailureKind kind, string? message = null) : base(message)
-    {
-        ContractFailureKind = kind;
-    }
-}
-
-internal static class ExceptionExtensions
-{
-    public static void AddContractData(this ContractViolationException ex, string contractDescription)
-    {
-        ex.Data[typeof(ContractExceptionData)] = new ContractExceptionData(contractDescription);
-    }
-
-    public static ContractExceptionData? GetContractData(this ContractViolationException ex)
-    {
-        if (ex.Data.Contains(typeof(ContractExceptionData)))
-        {
-            return ex.Data[typeof(ContractExceptionData)] as ContractExceptionData;
-        }
-        return null;
-    }
-}
-
-internal record ContractExceptionData(string ContractDescription);
+namespace ContractExpressions;
 
 internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 {
     private TIntf _target = null!;
-    private static readonly ContractDelegates _contracts;
+
+    private static readonly Contracts? _contracts;
 
     static ContractAwareProxy()
     {
-        var contractClassType = typeof(TIntf).GetCustomAttributesData()
-            .FirstOrDefault(x => x.AttributeType == typeof(ContractClassAttribute))?.ConstructorArguments[0].Value as Type;
+        var contractClassAttr = typeof(TIntf).GetCustomAttribute<ContractClassAttribute>();
 
-
-        if (contractClassType != null)
+        if (contractClassAttr != null)
         {
-            // run Dbc.Def(...) in ctor
-            var contractClass = Activator.CreateInstance(contractClassType);
+            var typeContainingContracts = contractClassAttr.TypeContainingContracts;
+
+            var contractClassForAttr = typeContainingContracts.GetCustomAttribute<ContractClassForAttribute>();
+            if (contractClassForAttr == null || contractClassForAttr.TypeContractsAreFor != typeof(TIntf))
+            {
+                throw new InvalidOperationException($"Type '{typeContainingContracts.FullName}' is marked with ContractClassAttribute for '{typeof(TIntf).FullName}', but it does not have ContractClassForAttribute for that interface.");
+            }
+
+            RunDefaultConstructorToCollectContracts(typeContainingContracts);
+
             _contracts = ContractRegistry.Get(typeof(TIntf));
-
-        }
-        else
-        {
-            _contracts = ContractDelegates.Empty;
         }
     }
 
-    private void InvokeContract(Invokable contract, object?[] args, MethodInfo targetMethod)
+    private static void RunDefaultConstructorToCollectContracts(Type type)
+    {
+        var ctor = type.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        Debug.Assert(ctor != null, $"Type {type.FullName} must have a default constructor");
+        _ = ctor!.Invoke(null);
+    }
+
+    private static void InvokeContract(Invokable contractInvokable, object?[] args, MethodInfo targetMethod)
     {
         try
         {
-            contract.Delegate.DynamicInvoke(args);
+            contractInvokable.Delegate.DynamicInvoke(args);
         }
         catch (TargetInvocationException ex) when (ex.InnerException is ContractViolationException innerEx)
         {
-            innerEx.AddContractData($"'{targetMethod.DeclaringType?.FullName}::{targetMethod.Name}'; {contract.Representation}");
+            innerEx.AddContractData($"'{targetMethod.DeclaringType?.FullName}::{targetMethod.Name}'; {contractInvokable.Expression}");
 
             throw innerEx;
         }
@@ -78,7 +58,7 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 
         var ctx = new ContractContext();
 
-        if (_contracts.Preconditions.TryGetValue(targetMethod, out var preconditions))
+        if (_contracts?.Preconditions.TryGetValue(targetMethod, out var preconditions) == true)
         {
             foreach (var p in preconditions)
             {
@@ -92,7 +72,7 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                     preconditionArgs.AddRange(args);
                 }
 
-                InvokeContract(p, preconditionArgs.ToArray(), targetMethod);
+                ContractAwareProxy<TIntf>.InvokeContract(p, preconditionArgs.ToArray(), targetMethod);
 
             }
 
@@ -136,7 +116,7 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                 }
                 postconditionArgs.Add(ctx);
 
-                InvokeContract(p, postconditionArgs.ToArray(), targetMethod);
+                ContractAwareProxy<TIntf>.InvokeContract(p, postconditionArgs.ToArray(), targetMethod);
             }
 
         }

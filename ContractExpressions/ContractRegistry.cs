@@ -1,36 +1,43 @@
-namespace ContractExpr;
+using System.Reflection;
+
+namespace ContractExpressions;
 
 internal static class ContractRegistry
 {
-    private static Dictionary<Type, ContractDelegates> Contracts { get; } = new();
+    private static Dictionary<Type, Contracts> Contracts { get; } = new();
 
-    public static void Add(Type intfType, ContractDelegates contracts)
+    public static void AddPreconditions(Type intfType, MethodInfo method, IList<Invokable> preconditions)
     {
-        if (Contracts.TryGetValue(intfType, out var existingContracts))
+        if (!Contracts.TryGetValue(intfType, out var contracts))
         {
-            // merge
-            foreach (var (k, v) in contracts.Preconditions)
-            {
-                existingContracts.Preconditions.AddItem(k, v);
-            }
-
-            foreach (var (k, v) in contracts.Postconditions)
-            {
-                existingContracts.Postconditions.AddItem(k, v);
-            }
-
-            foreach (var (k, v) in contracts.OldValueCollectors)
-            {
-                existingContracts.OldValueCollectors[k] = v;
-            }
-        }
-        else
-        {
+            contracts = new Contracts();
             Contracts[intfType] = contracts;
         }
+
+        contracts.Preconditions[method] = preconditions;
+    }
+    public static void AddPostconditions(Type intfType, MethodInfo method, IList<Invokable> postconditions)
+    {
+        if (!Contracts.TryGetValue(intfType, out var contracts))
+        {
+            contracts = new Contracts();
+            Contracts[intfType] = contracts;
+        }
+
+        contracts.Postconditions[method] = postconditions;
+    }
+    public static void AddOldValueCollector(Type intfType, PropertyInfo property, Delegate collector)
+    {
+        if (!Contracts.TryGetValue(intfType, out var contracts))
+        {
+            contracts = new Contracts();
+            Contracts[intfType] = contracts;
+        }
+
+        contracts.OldValueCollectors[property] = collector;
     }
 
-    public static ContractDelegates Get(Type intfType)
+    public static Contracts Get(Type intfType)
     {
         return Contracts[intfType];
     }

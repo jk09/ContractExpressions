@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
 
-namespace ContractExpr;
+namespace ContractExpressions;
 
 public static class Dbc
 {
@@ -91,27 +91,26 @@ public static class Dbc
 
         var method = selVisitor.Method;
 
-        var contracts = new ContractDelegates();
-
-        foreach (var def in contractDefExprs)
+        foreach (var expr in contractDefExprs)
         {
             var visitor = new DbcDefVisitor(typeof(TIntf));
-            visitor.Visit(def);
+            visitor.Visit(expr);
 
             foreach (var p in visitor.Preconditions)
-                contracts.Preconditions.AddItem(method, new Invokable { Representation = def.ToString(), Delegate = p });
+            {
+                ContractRegistry.AddPreconditions(typeof(TIntf), method, new List<Invokable> { new Invokable { Expression = expr, Delegate = p } });
+            }
 
             foreach (var p in visitor.Postconditions)
-                contracts.Postconditions.AddItem(method, new Invokable { Representation = def.ToString(), Delegate = p });
-
+            {
+                ContractRegistry.AddPostconditions(typeof(TIntf), method, new List<Invokable> { new Invokable { Expression = expr, Delegate = p } });
+            }
 
             foreach (var (k, v) in visitor.OldValueCollectors)
             {
-                contracts.OldValueCollectors.Add(k, v);
+                ContractRegistry.AddOldValueCollector(typeof(TIntf), k, v);
             }
         }
-
-        ContractRegistry.Add(typeof(TIntf), contracts);
     }
 
     public static T Make<T>(T target) where T : class

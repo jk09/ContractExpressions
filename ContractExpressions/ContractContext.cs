@@ -3,7 +3,7 @@
 
 using System.Reflection;
 
-namespace ContractExpr;
+namespace ContractExpressions;
 
 internal class ContractContext
 {
