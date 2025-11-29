@@ -8,8 +8,6 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 {
     private TIntf _target = null!;
 
-    private static readonly Contracts? _contracts;
-
     static ContractAwareProxy()
     {
         var contractClassAttr = typeof(TIntf).GetCustomAttribute<ContractClassAttribute>();
@@ -24,13 +22,11 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                 throw new InvalidOperationException($"Type '{typeContainingContracts.FullName}' is marked with ContractClassAttribute for '{typeof(TIntf).FullName}', but it does not have ContractClassForAttribute for that interface.");
             }
 
-            RunDefaultConstructorToCollectContracts(typeContainingContracts);
-
-            _contracts = ContractRegistry.Get(typeof(TIntf));
+            CollectContracts(typeContainingContracts);
         }
     }
 
-    private static void RunDefaultConstructorToCollectContracts(Type type)
+    private static void CollectContracts(Type type)
     {
         var ctor = type.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
         Debug.Assert(ctor != null, $"Type {type.FullName} must have a default constructor");
@@ -58,7 +54,10 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 
         var ctx = new ContractContext();
 
-        if (_contracts?.Preconditions.TryGetValue(targetMethod, out var preconditions) == true)
+        var contractRegistry = ContractRegistry.Instance;
+
+
+        if (contractRegistry.Preconditions.TryGetValue(targetMethod, out var preconditions))
         {
             foreach (var p in preconditions)
             {
@@ -78,13 +77,17 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 
         }
 
-        var oldValuesCollectors = _contracts.OldValueCollectors;
+
         var oldValues = new Dictionary<MemberInfo, object?>();
 
-        foreach (var (property, propertyCollector) in oldValuesCollectors)
+        if (contractRegistry.OldValueCollectors.ContainsKey(targetMethod))
         {
-            var oldValue = propertyCollector.DynamicInvoke(_target);
-            oldValues.Add(property, oldValue);
+            var oldValuesCollectors = contractRegistry.OldValueCollectors[targetMethod];
+            foreach (var oldValueCollector in oldValuesCollectors)
+            {
+                var oldValue = oldValueCollector.Value.DynamicInvoke(_target);
+                oldValues.Add(oldValueCollector.Key, oldValue);
+            }
         }
 
         ctx.OldValues = oldValues;
@@ -102,14 +105,15 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
             throw ex.InnerException ?? ex;
         }
 
-        if (_contracts.Postconditions.TryGetValue(targetMethod, out var postconditions))
+
+        if (contractRegistry.Postconditions.TryGetValue(targetMethod, out var postconditions))
         {
             foreach (var p in postconditions)
             {
                 var postconditionArgs = new List<object?>
-            {
-                _target
-            };
+                 {
+                    _target
+                };
                 if (args != null)
                 {
                     postconditionArgs.AddRange(args);

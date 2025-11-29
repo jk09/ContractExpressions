@@ -2,20 +2,13 @@ namespace ContractExpressions;
 
 internal static class CollectionExtensions
 {
-    public static void AddItem<TKey, TItemValue>(this IDictionary<TKey, IList<TItemValue>> dict, TKey key, TItemValue item)
-    {
-        dict.AddItem(key, [item]);
-    }
-
-    public static void AddItem<TKey, TItemValue>(this IDictionary<TKey, IList<TItemValue>> dict, TKey key, IEnumerable<TItemValue> items)
+    public static void AddSafe<TK, TV>(this IDictionary<TK, IList<TV>> dict, TK key, TV item)
     {
         if (!dict.ContainsKey(key))
         {
-            dict.Add(key, []);
+            dict.Add(key, new List<TV>());
         }
-        foreach (var item in items)
-        {
-            dict[key].Add(item);
-        }
+
+        dict[key].Add(item);
     }
 }

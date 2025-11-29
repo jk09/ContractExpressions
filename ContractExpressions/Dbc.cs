@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace ContractExpressions;
 
@@ -96,20 +97,32 @@ public static class Dbc
             var visitor = new DbcDefVisitor(typeof(TIntf));
             visitor.Visit(expr);
 
+            var contractRegistry = ContractRegistry.Instance;
+
             foreach (var p in visitor.Preconditions)
             {
-                ContractRegistry.AddPreconditions(typeof(TIntf), method, new List<Invokable> { new Invokable { Expression = expr, Delegate = p } });
+                contractRegistry.Preconditions.AddSafe(method, new Invokable(expr, p));
             }
 
             foreach (var p in visitor.Postconditions)
             {
-                ContractRegistry.AddPostconditions(typeof(TIntf), method, new List<Invokable> { new Invokable { Expression = expr, Delegate = p } });
+                contractRegistry.Postconditions.AddSafe(method, new Invokable(expr, p));
             }
 
-            foreach (var (k, v) in visitor.OldValueCollectors)
+            if (visitor.OldValueCollectors.Count > 0)
             {
-                ContractRegistry.AddOldValueCollector(typeof(TIntf), k, v);
+                if (!contractRegistry.OldValueCollectors.ContainsKey(method))
+                {
+                    contractRegistry.OldValueCollectors[method] = new Dictionary<PropertyInfo, Delegate>();
+                }
+                foreach (var kvp in visitor.OldValueCollectors)
+                {
+                    contractRegistry.OldValueCollectors[method][kvp.Key] = kvp.Value;
+                }
             }
+
+
+
         }
     }
 
