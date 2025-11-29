@@ -99,14 +99,25 @@ public static class Dbc
 
             var contractRegistry = ContractRegistry.Instance;
 
+            if (!contractRegistry.Preconditions.ContainsKey(method))
+            {
+                contractRegistry.Preconditions[method] = new List<Invokable>();
+            }
+
             foreach (var p in visitor.Preconditions)
             {
-                contractRegistry.Preconditions.AddSafe(method, new Invokable(expr, p));
+                contractRegistry.Preconditions[method].Add(new Invokable(expr, p));
+            }
+
+
+            if (!contractRegistry.Postconditions.ContainsKey(method))
+            {
+                contractRegistry.Postconditions[method] = new List<Invokable>();
             }
 
             foreach (var p in visitor.Postconditions)
             {
-                contractRegistry.Postconditions.AddSafe(method, new Invokable(expr, p));
+                contractRegistry.Postconditions[method].Add(new Invokable(expr, p));
             }
 
             if (visitor.OldValueCollectors.Count > 0)

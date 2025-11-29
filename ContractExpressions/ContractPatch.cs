@@ -1,4 +1,5 @@
 using System.Diagnostics.Contracts;
+using System.Globalization;
 using System.Reflection;
 
 namespace ContractExpressions;
@@ -21,7 +22,13 @@ internal static class ContractPatch
         {
             if (exceptionType != null)
             {
-                throw (Exception)Activator.CreateInstance(exceptionType, message)!;
+                var ex = Activator.CreateInstance(
+                            exceptionType,
+                            BindingFlags.Public | BindingFlags.Instance, default(Binder),
+                            new object?[] { message, new Exception() }, CultureInfo.InstalledUICulture);
+
+                throw (Exception)ex!;
+
             }
             else
             {
@@ -36,7 +43,13 @@ internal static class ContractPatch
         {
             if (exceptionType != null)
             {
-                throw (Exception)Activator.CreateInstance(exceptionType, message)!;
+                var ex = Activator.CreateInstance(
+                            exceptionType,
+                            BindingFlags.Public | BindingFlags.Instance, default(Binder),
+                            new object?[] { message, new Exception() }, CultureInfo.InstalledUICulture);
+
+                throw (Exception)ex!;
+
             }
             else
             {

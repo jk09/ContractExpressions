@@ -42,8 +42,11 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
         catch (TargetInvocationException ex) when (ex.InnerException is ContractViolationException innerEx)
         {
             innerEx.AddContractData($"'{targetMethod.DeclaringType?.FullName}::{targetMethod.Name}'; {contractInvokable.Expression}");
-
             throw innerEx;
+        }
+        catch (TargetInvocationException ex)
+        {
+            throw ex.InnerException ?? ex;
         }
     }
 
