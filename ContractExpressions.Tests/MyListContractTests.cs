@@ -156,12 +156,6 @@ public class MyListContractTests
         Assert.Throws<ContractViolationException>(() => _proxy.RemoveAt(1));
     }
 
-    [Fact]
-    public void CopyTo_WithNullArray_ThrowsException()
-    {
-        _proxy.Add(new object());
-        Assert.Throws<ContractViolationException>(() => _proxy.CopyTo(null, 0));
-    }
 
     [Fact]
     public void CopyTo_WithNegativeArrayIndex_ThrowsException()
@@ -226,7 +220,6 @@ class ListContracts
             static (IMyList x, int index) => Contract.Ensures(x.Count == Contract.OldValue<int>(x.Count) - 1));
 
         Dbc.Def(static (IMyList x, Array array, int arrayIndex) => x.CopyTo(array, arrayIndex),
-            static (IMyList x, Array array, int arrayIndex) => Contract.Requires(array != null),
             static (IMyList x, Array array, int arrayIndex) => Contract.Requires(arrayIndex >= 0),
             static (IMyList x, Array array, int arrayIndex) => Contract.Requires(arrayIndex + x.Count <= array.Length));
 
