@@ -77,7 +77,7 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
         {
             // Requires<TException>(bool, string)
             var exceptionTypeArg = contractRequiresExpr.Method.GetGenericArguments()[0];
-            exceptionType = Expression.Constant(null, typeof(string)); // message already extracted
+            exceptionType = Expression.Constant(exceptionTypeArg, typeof(Type)); // message already extracted
         }
         else
         {
@@ -86,9 +86,7 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
 
         var preconditionParams = new List<ParameterExpression>(_contractParameters!);
 
-        Expression callExpr = contractRequiresExpr.Method.GetGenericArguments().Length > 0
-            ? Expression.Call(null, preconditionPatch, condition, message)
-            : Expression.Call(null, preconditionPatch, condition, message, exceptionType);
+        Expression callExpr = Expression.Call(null, preconditionPatch, condition, message, exceptionType);
 
         var contract = Expression.Lambda(callExpr, $"Requires_1", preconditionParams);
         contractDlg = contract.Compile();
