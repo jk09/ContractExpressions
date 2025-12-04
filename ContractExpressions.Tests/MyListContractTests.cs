@@ -225,4 +225,10 @@ class MyListContracts
 
 
     }
+
+    [ContractInvariantMethod]
+    public void ObjectInvariant()
+    {
+        Contract.Invariant(this != null, "Instance cannot be null");
+    }
 }

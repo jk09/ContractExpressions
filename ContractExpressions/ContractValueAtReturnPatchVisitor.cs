@@ -15,28 +15,17 @@ internal class ContractValueAtReturnPatchVisitor : ExpressionVisitor
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        if (node.Method.DeclaringType == typeof(Contract) && node.Method.Name == "ValueAtReturn")
+        if (node.Method.DeclaringType == typeof(Contract) && node.Method.Name == nameof(Contract.ValueAtReturn))
         {
-            var patchMethodGen = typeof(ContractPatch).GetMethod("ValueAtReturn", 1, new Type[] { typeof(ParameterInfo), typeof(ContractContext) });
+            var parameterArg = node.Arguments[0];
+            var parameterInfo = (parameterArg as ParameterExpression);
+
+            var patchMethodGen = typeof(ContractPatch).GetMethod(nameof(ContractPatch.ValueAtReturn));
             var patchMethod = patchMethodGen!.MakeGenericMethod(node.Method.ReturnType);
 
-            var valueExpr = node.Arguments[0];
-
-            if (valueExpr is ParameterExpression parameterExpr)
-            {
-                // Need to get the ParameterInfo from the parameter expression
-                // This is a simplification - in real usage, we'd need more context
-                throw new NotSupportedException("ValueAtReturn requires additional context about parameter metadata");
-            }
-            else if (valueExpr is ConstantExpression constantExpr && constantExpr.Value is ParameterInfo paramInfo)
-            {
-                var e = Expression.Call(null, patchMethod, Expression.Constant(paramInfo, typeof(ParameterInfo)), _contractContextArg);
-                return e;
-            }
-            else
-            {
-                throw new NotImplementedException($"Cannot handle ValueAtReturn expression {valueExpr}");
-            }
+            var parameterInfoExpr = Expression.Constant(parameterInfo, typeof(System.Reflection.ParameterInfo));
+            var e = Expression.Call(null, patchMethod, parameterInfoExpr, _contractContextArg);
+            return e;
         }
 
         return base.VisitMethodCall(node);

@@ -4,46 +4,41 @@ using System.Reflection;
 
 namespace ContractExpressions;
 
-internal class DbcDefVisitor : ExpressionVisitor
+internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
 {
     private IList<ParameterExpression>? _contractParameters;
-    private readonly Type _contractType;
+    private readonly Type _contractType = contractType;
+    public readonly IList<Delegate> Preconditions = new List<Delegate>();
+    public readonly IList<Delegate> Postconditions = new List<Delegate>();
+    public readonly IList<Delegate> PostconditionsOnThrow = new List<Delegate>();
 
-    public readonly List<Delegate> Preconditions = new();
-    public readonly List<Delegate> Postconditions = new();
-    public readonly Dictionary<PropertyInfo, Delegate> OldValueCollectors = new();
-
-    public DbcDefVisitor(Type contractType)
-    {
-        _contractType = contractType;
-    }
+    public readonly IDictionary<PropertyInfo, Delegate> OldValueCollectors = new Dictionary<PropertyInfo, Delegate>();
 
     public override Expression? Visit(Expression? node)
     {
         if (_contractParameters == null && node is LambdaExpression lambda)
         {
             _contractParameters = lambda.Parameters;
-            //node.Dump("node");
         }
 
         return base.Visit(node);
-
     }
 
-    private void AddOldValueCollectors(Expression condition)
+    private void AddOldValueCollectors(Expression condition, out IDictionary<PropertyInfo, Delegate> oldValueCollectors)
     {
         var oldValueVisitor = new ContractOldValueVisitor();
         oldValueVisitor.Visit(condition);
+        oldValueCollectors = new Dictionary<PropertyInfo, Delegate>();
 
         foreach (var oldValueMember in oldValueVisitor.OldValueProperties)
         {
-            if (!OldValueCollectors.ContainsKey(oldValueMember))
+            if (!oldValueCollectors.ContainsKey(oldValueMember))
             {
                 var thisParamExpr = Expression.Parameter(_contractType, "thisContract");
                 var collector = Expression.Lambda(Expression.Property(thisParamExpr, oldValueMember), thisParamExpr);
                 var dlg = collector.Compile();
 
-                OldValueCollectors.Add(oldValueMember, dlg);
+                oldValueCollectors.Add(oldValueMember, dlg);
             }
         }
     }
@@ -69,122 +64,111 @@ internal class DbcDefVisitor : ExpressionVisitor
         return patched;
     }
 
+    private void GetPreconditionDelegate(MethodCallExpression contractRequiresExpr, out Delegate contractDlg)
+    {
+        var condition = contractRequiresExpr.Arguments[0];
+        var message = contractRequiresExpr.Arguments.Count > 1 ? contractRequiresExpr.Arguments[1] : Expression.Constant(null, typeof(string));
+
+        Expression exceptionType;
+
+        MethodInfo preconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Requires), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
+
+        if (contractRequiresExpr.Method.GetGenericArguments().Length > 0)
+        {
+            // Requires<TException>(bool, string)
+            var exceptionTypeArg = contractRequiresExpr.Method.GetGenericArguments()[0];
+            exceptionType = Expression.Constant(null, typeof(string)); // message already extracted
+        }
+        else
+        {
+            exceptionType = Expression.Constant(null, typeof(Type));
+        }
+
+        var preconditionParams = new List<ParameterExpression>(_contractParameters!);
+
+        Expression callExpr = contractRequiresExpr.Method.GetGenericArguments().Length > 0
+            ? Expression.Call(null, preconditionPatch, condition, message)
+            : Expression.Call(null, preconditionPatch, condition, message, exceptionType);
+
+        var contract = Expression.Lambda(callExpr, $"Requires_1", preconditionParams);
+        contractDlg = contract.Compile();
+    }
+
+    private void GetPostconditionDelegate(MethodCallExpression contractEnsuresExpr, out Delegate contractDlg, out IDictionary<PropertyInfo, Delegate> oldValueCollectorDlgs)
+    {
+        var condition = contractEnsuresExpr.Arguments[0];
+        var message = contractEnsuresExpr.Arguments.Count > 1 ? contractEnsuresExpr.Arguments[1] : Expression.Constant(null, typeof(string));
+        var exceptionType = Expression.Constant(null, typeof(Type));
+
+        AddOldValueCollectors(condition, out oldValueCollectorDlgs);
+
+        var contractContextParam = Expression.Parameter(typeof(ContractContext), "contractContext");
+        var patchedCondition = WithPatchedValueAtReturn(WithPatchedOldValues(WithPatchedResults(condition, contractContextParam), contractContextParam), contractContextParam);
+
+        var postconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Ensures), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
+
+        var postconditionParams = new List<ParameterExpression>(_contractParameters!)
+                {
+                    contractContextParam
+                };
+
+        var contract = Expression.Lambda(Expression.Call(null, postconditionPatch, patchedCondition, message, exceptionType), $"Ensures_1", postconditionParams);
+        contractDlg = contract.Compile();
+    }
+
+    private void GetEnsuresOnThrowDelegate(MethodCallExpression contractEnsuresOnThrowExpr, out Delegate contractDlg)
+    {
+        var condition = contractEnsuresOnThrowExpr.Arguments[0];
+        var message = contractEnsuresOnThrowExpr.Arguments.Count > 1 ? contractEnsuresOnThrowExpr.Arguments[1] : Expression.Constant(null, typeof(string));
+
+        MethodInfo ensuresOnThrowPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.EnsuresOnThrow), 1, new Type[] { typeof(bool), typeof(string) })!;
+
+        var exceptionTypeArg = contractEnsuresOnThrowExpr.Method.GetGenericArguments()[0];
+
+        var ensuresOnThrowParams = new List<ParameterExpression>(_contractParameters!);
+
+        var contract = Expression.Lambda(
+            Expression.Call(
+                null,
+                ensuresOnThrowPatch.MakeGenericMethod(exceptionTypeArg),
+                condition,
+                message),
+            $"EnsuresOnThrow_1",
+            ensuresOnThrowParams);
+        contractDlg = contract.Compile();
+    }
+
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
+
         if (node.Method.DeclaringType == typeof(Contract))
         {
-            if (node.Method.Name == nameof(Contract.Requires))
+            switch (node.Method.Name)
             {
-                var condition = node.Arguments[0];
-                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
+                case nameof(Contract.Requires):
+                    GetPreconditionDelegate(node, out var preconditionDelegate);
+                    Preconditions.Add(preconditionDelegate);
+                    break;
+                case nameof(Contract.Ensures):
+                    GetPostconditionDelegate(node, out var postconditionDelegate, out var oldValueCollectorDelegate);
+                    Postconditions.Add(postconditionDelegate);
+                    foreach (var property in oldValueCollectorDelegate.Keys)
+                    {
+                        if (!OldValueCollectors.ContainsKey(property))
+                        {
+                            OldValueCollectors.Add(property, oldValueCollectorDelegate[property]);
+                        }
+                    }
+                    break;
 
-                MethodInfo preconditionPatch;
-                Expression exceptionType;
-
-                if (node.Method.GetGenericArguments().Length > 0)
-                {
-                    // Requires<TException>(bool, string)
-                    var exceptionTypeArg = node.Method.GetGenericArguments()[0];
-                    preconditionPatch = typeof(ContractPatch)
-                        .GetMethod(nameof(ContractPatch.Requires), 1, new Type[] { typeof(bool), typeof(string) })!
-                        .MakeGenericMethod(exceptionTypeArg);
-                    exceptionType = Expression.Constant(null, typeof(string)); // message already extracted
-                }
-                else
-                {
-                    // Requires(bool, string, Type)
-                    preconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Requires), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
-                    exceptionType = Expression.Constant(null, typeof(Type));
-                }
-
-                var preconditionParams = new List<ParameterExpression>(_contractParameters!);
-
-                Expression callExpr = node.Method.GetGenericArguments().Length > 0
-                    ? Expression.Call(null, preconditionPatch, condition, message)
-                    : Expression.Call(null, preconditionPatch, condition, message, exceptionType);
-
-                var contract = Expression.Lambda(callExpr, $"Requires_1", preconditionParams);
-                var contractDlg = contract.Compile();
-                Preconditions.Add(contractDlg);
-            }
-            else if (node.Method.Name == nameof(Contract.Ensures))
-            {
-                var condition = node.Arguments[0];
-                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
-                var exceptionType = Expression.Constant(null, typeof(Type));
-
-                AddOldValueCollectors(condition);
-
-                var contractContextParam = Expression.Parameter(typeof(ContractContext), "contractContext");
-                var patchedCondition = WithPatchedValueAtReturn(WithPatchedOldValues(WithPatchedResults(condition, contractContextParam), contractContextParam), contractContextParam);
-
-                var postconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Ensures), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
-
-                var postconditionParams = new List<ParameterExpression>(_contractParameters!)
-                {
-                    contractContextParam
-                };
-
-                var contract = Expression.Lambda(Expression.Call(null, postconditionPatch, patchedCondition, message, exceptionType), $"Ensures_1", postconditionParams);
-                var contractDlg = contract.Compile();
-                Postconditions.Add(contractDlg);
-            }
-            else if (node.Method.Name == nameof(Contract.EnsuresOnThrow))
-            {
-                var condition = node.Arguments[0];
-                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
-
-                var exceptionTypeArg = node.Method.GetGenericArguments()[0];
-                var postconditionPatch = typeof(ContractPatch)
-                    .GetMethod(nameof(ContractPatch.EnsuresOnThrow), 1, new Type[] { typeof(bool), typeof(string) })!
-                    .MakeGenericMethod(exceptionTypeArg);
-
-                AddOldValueCollectors(condition);
-
-                var contractContextParam = Expression.Parameter(typeof(ContractContext), "contractContext");
-                var patchedCondition = WithPatchedValueAtReturn(WithPatchedOldValues(WithPatchedResults(condition, contractContextParam), contractContextParam), contractContextParam);
-
-                var postconditionParams = new List<ParameterExpression>(_contractParameters!)
-                {
-                    contractContextParam
-                };
-
-                var contract = Expression.Lambda(Expression.Call(null, postconditionPatch, patchedCondition, message), $"EnsuresOnThrow_1", postconditionParams);
-                var contractDlg = contract.Compile();
-                Postconditions.Add(contractDlg);
-            }
-            else if (node.Method.Name == nameof(Contract.Assert))
-            {
-                var condition = node.Arguments[0];
-                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
-
-                var assertPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Assert), new Type[] { typeof(bool), typeof(string) })!;
-                var preconditionParams = new List<ParameterExpression>(_contractParameters!);
-                var contract = Expression.Lambda(Expression.Call(null, assertPatch, condition, message), $"Assert_1", preconditionParams);
-                var contractDlg = contract.Compile();
-                Preconditions.Add(contractDlg);
-            }
-            else if (node.Method.Name == nameof(Contract.Assume))
-            {
-                var condition = node.Arguments[0];
-                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
-
-                var assumePatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Assume), new Type[] { typeof(bool), typeof(string) })!;
-                var preconditionParams = new List<ParameterExpression>(_contractParameters!);
-                var contract = Expression.Lambda(Expression.Call(null, assumePatch, condition, message), $"Assume_1", preconditionParams);
-                var contractDlg = contract.Compile();
-                Preconditions.Add(contractDlg);
-            }
-            else if (node.Method.Name == nameof(Contract.Invariant))
-            {
-                var condition = node.Arguments[0];
-                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
-
-                var invariantPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Invariant), new Type[] { typeof(bool), typeof(string) })!;
-                var preconditionParams = new List<ParameterExpression>(_contractParameters!);
-                var contract = Expression.Lambda(Expression.Call(null, invariantPatch, condition, message), $"Invariant_1", preconditionParams);
-                var contractDlg = contract.Compile();
-                Preconditions.Add(contractDlg);
+                case nameof(Contract.EnsuresOnThrow):
+                    GetEnsuresOnThrowDelegate(node, out var ensuresOnThrowDelegate);
+                    PostconditionsOnThrow.Add(ensuresOnThrowDelegate);
+                    break;
+                case nameof(Contract.Invariant):
+                    break;
+                default:
+                    return base.VisitMethodCall(node);
             }
         }
 
