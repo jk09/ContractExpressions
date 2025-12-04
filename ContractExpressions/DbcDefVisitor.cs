@@ -77,33 +77,45 @@ internal class DbcDefVisitor : ExpressionVisitor
             {
                 var condition = node.Arguments[0];
                 var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
-                var exceptionType = node.Method.GetGenericArguments().Length > 0
-                    ? Expression.Constant(node.Method.GetGenericArguments()[0], typeof(Type))
-                    : Expression.Constant(null, typeof(Type));
 
-                var preconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Requires), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
+                MethodInfo preconditionPatch;
+                Expression exceptionType;
 
+                if (node.Method.GetGenericArguments().Length > 0)
+                {
+                    // Requires<TException>(bool, string)
+                    var exceptionTypeArg = node.Method.GetGenericArguments()[0];
+                    preconditionPatch = typeof(ContractPatch)
+                        .GetMethod(nameof(ContractPatch.Requires), 1, new Type[] { typeof(bool), typeof(string) })!
+                        .MakeGenericMethod(exceptionTypeArg);
+                    exceptionType = Expression.Constant(null, typeof(string)); // message already extracted
+                }
+                else
+                {
+                    // Requires(bool, string, Type)
+                    preconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Requires), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
+                    exceptionType = Expression.Constant(null, typeof(Type));
+                }
 
                 var preconditionParams = new List<ParameterExpression>(_contractParameters!);
 
-                var contract = Expression.Lambda(Expression.Call(null, preconditionPatch, condition, message, exceptionType), $"Requires_1", preconditionParams);
+                Expression callExpr = node.Method.GetGenericArguments().Length > 0
+                    ? Expression.Call(null, preconditionPatch, condition, message)
+                    : Expression.Call(null, preconditionPatch, condition, message, exceptionType);
 
+                var contract = Expression.Lambda(callExpr, $"Requires_1", preconditionParams);
                 var contractDlg = contract.Compile();
-
                 Preconditions.Add(contractDlg);
             }
             else if (node.Method.Name == nameof(Contract.Ensures))
             {
                 var condition = node.Arguments[0];
                 var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
-                var exceptionType = node.Method.GetGenericArguments().Length > 0
-                    ? Expression.Constant(node.Method.GetGenericArguments()[0], typeof(Type))
-                    : Expression.Constant(null, typeof(Type));
+                var exceptionType = Expression.Constant(null, typeof(Type));
 
                 AddOldValueCollectors(condition);
 
                 var contractContextParam = Expression.Parameter(typeof(ContractContext), "contractContext");
-
                 var patchedCondition = WithPatchedValueAtReturn(WithPatchedOldValues(WithPatchedResults(condition, contractContextParam), contractContextParam), contractContextParam);
 
                 var postconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Ensures), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
@@ -114,11 +126,65 @@ internal class DbcDefVisitor : ExpressionVisitor
                 };
 
                 var contract = Expression.Lambda(Expression.Call(null, postconditionPatch, patchedCondition, message, exceptionType), $"Ensures_1", postconditionParams);
-
                 var contractDlg = contract.Compile();
-
                 Postconditions.Add(contractDlg);
+            }
+            else if (node.Method.Name == nameof(Contract.EnsuresOnThrow))
+            {
+                var condition = node.Arguments[0];
+                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
 
+                var exceptionTypeArg = node.Method.GetGenericArguments()[0];
+                var postconditionPatch = typeof(ContractPatch)
+                    .GetMethod(nameof(ContractPatch.EnsuresOnThrow), 1, new Type[] { typeof(bool), typeof(string) })!
+                    .MakeGenericMethod(exceptionTypeArg);
+
+                AddOldValueCollectors(condition);
+
+                var contractContextParam = Expression.Parameter(typeof(ContractContext), "contractContext");
+                var patchedCondition = WithPatchedValueAtReturn(WithPatchedOldValues(WithPatchedResults(condition, contractContextParam), contractContextParam), contractContextParam);
+
+                var postconditionParams = new List<ParameterExpression>(_contractParameters!)
+                {
+                    contractContextParam
+                };
+
+                var contract = Expression.Lambda(Expression.Call(null, postconditionPatch, patchedCondition, message), $"EnsuresOnThrow_1", postconditionParams);
+                var contractDlg = contract.Compile();
+                Postconditions.Add(contractDlg);
+            }
+            else if (node.Method.Name == nameof(Contract.Assert))
+            {
+                var condition = node.Arguments[0];
+                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
+
+                var assertPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Assert), new Type[] { typeof(bool), typeof(string) })!;
+                var preconditionParams = new List<ParameterExpression>(_contractParameters!);
+                var contract = Expression.Lambda(Expression.Call(null, assertPatch, condition, message), $"Assert_1", preconditionParams);
+                var contractDlg = contract.Compile();
+                Preconditions.Add(contractDlg);
+            }
+            else if (node.Method.Name == nameof(Contract.Assume))
+            {
+                var condition = node.Arguments[0];
+                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
+
+                var assumePatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Assume), new Type[] { typeof(bool), typeof(string) })!;
+                var preconditionParams = new List<ParameterExpression>(_contractParameters!);
+                var contract = Expression.Lambda(Expression.Call(null, assumePatch, condition, message), $"Assume_1", preconditionParams);
+                var contractDlg = contract.Compile();
+                Preconditions.Add(contractDlg);
+            }
+            else if (node.Method.Name == nameof(Contract.Invariant))
+            {
+                var condition = node.Arguments[0];
+                var message = node.Arguments.Count > 1 ? node.Arguments[1] : Expression.Constant(null, typeof(string));
+
+                var invariantPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Invariant), new Type[] { typeof(bool), typeof(string) })!;
+                var preconditionParams = new List<ParameterExpression>(_contractParameters!);
+                var contract = Expression.Lambda(Expression.Call(null, invariantPatch, condition, message), $"Invariant_1", preconditionParams);
+                var contractDlg = contract.Compile();
+                Preconditions.Add(contractDlg);
             }
         }
 
