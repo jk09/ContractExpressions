@@ -1,20 +1,32 @@
 using System.Diagnostics.Contracts;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace ContractExpressions;
 
 internal static class ContractPatch
 {
-    public static T? Result<T>(ContractContext context)
+    public static T Result<T>(ContractContext context)
     {
-        return context.Result is T value ? value : default(T);
+        return Cast<T>(context.Result);
     }
 
-    public static T? OldValue<T>(PropertyInfo property, ContractContext context)
+    public static T OldValue<T>(PropertyInfo property, ContractContext context)
     {
-        return context?.OldValues?[property] is T value ? value : default(T);
+        return Cast<T>(context.OldValues?[property]);
     }
+
+    public static T? ValueAtReturn<T>(ParameterInfo parameter, ContractContext context)
+    {
+        return Cast<T?>(context.ValuesAtReturn?[parameter]);
+    }
+
+    private static T Cast<T>(object? value)
+    {
+        return value is T tValue ? tValue : default(T);
+    }
+
 
     public static void Requires(bool condition, string? message = null, Type? exceptionType = null)
     {

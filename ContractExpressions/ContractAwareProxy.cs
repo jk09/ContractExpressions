@@ -7,6 +7,7 @@ namespace ContractExpressions;
 internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 {
     private TIntf _target = null!;
+    private static readonly ContractRegistry _contractRegistry = ContractRegistry.Instance;
 
     static ContractAwareProxy()
     {
@@ -50,17 +51,23 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
         }
     }
 
-
-    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    private void CollectOldValues(MethodInfo targetMethod, object?[]? args, ContractContext context)
     {
-        if (targetMethod == null) throw new ArgumentNullException(nameof(targetMethod));
+        if (_contractRegistry.OldValueCollectors.ContainsKey(targetMethod))
+        {
+            var oldValuesCollectors = _contractRegistry.OldValueCollectors[targetMethod];
+            foreach (var oldValueCollector in oldValuesCollectors)
+            {
+                var oldValue = oldValueCollector.Value.DynamicInvoke(_target);
+                context.OldValues ??= new Dictionary<MemberInfo, object?>();
+                context.OldValues.Add(oldValueCollector.Key, oldValue);
+            }
+        }
+    }
 
-        var ctx = new ContractContext();
-
-        var contractRegistry = ContractRegistry.Instance;
-
-
-        if (contractRegistry.Preconditions.TryGetValue(targetMethod, out var preconditions))
+    private void EvaluatePreconditions(MethodInfo targetMethod, object?[]? args)
+    {
+        if (_contractRegistry.Preconditions.TryGetValue(targetMethod, out var preconditions))
         {
             foreach (var p in preconditions)
             {
@@ -75,41 +82,13 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                 }
 
                 ContractAwareProxy<TIntf>.InvokeContract(p, preconditionArgs.ToArray(), targetMethod);
-
-            }
-
-        }
-
-
-        var oldValues = new Dictionary<MemberInfo, object?>();
-
-        if (contractRegistry.OldValueCollectors.ContainsKey(targetMethod))
-        {
-            var oldValuesCollectors = contractRegistry.OldValueCollectors[targetMethod];
-            foreach (var oldValueCollector in oldValuesCollectors)
-            {
-                var oldValue = oldValueCollector.Value.DynamicInvoke(_target);
-                oldValues.Add(oldValueCollector.Key, oldValue);
             }
         }
+    }
 
-        ctx.OldValues = oldValues;
-        object? result;
-
-
-        try
-        {
-            result = targetMethod.Invoke(_target, args);
-
-            ctx.Result = result;
-        }
-        catch (TargetInvocationException ex)
-        {
-            throw ex.InnerException ?? ex;
-        }
-
-
-        if (contractRegistry.Postconditions.TryGetValue(targetMethod, out var postconditions))
+    private void EvaluatePostconditions(MethodInfo targetMethod, object?[]? args, ContractContext context)
+    {
+        if (_contractRegistry.Postconditions.TryGetValue(targetMethod, out var postconditions))
         {
             foreach (var p in postconditions)
             {
@@ -121,12 +100,35 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                 {
                     postconditionArgs.AddRange(args);
                 }
-                postconditionArgs.Add(ctx);
+                postconditionArgs.Add(context);
 
                 ContractAwareProxy<TIntf>.InvokeContract(p, postconditionArgs.ToArray(), targetMethod);
             }
 
         }
+    }
+
+    private void CollectValuesAtReturn(MethodInfo targetMethod, object?[]? args, ContractContext context)
+    {
+        context.ValuesAtReturn ??= new Dictionary<ParameterInfo, object?>();
+    }
+
+
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        if (targetMethod == null) throw new ArgumentNullException(nameof(targetMethod));
+
+        var context = new ContractContext();
+
+        EvaluatePreconditions(targetMethod, args);
+
+        CollectOldValues(targetMethod, args, context);
+
+        var result = targetMethod.Invoke(_target, args);
+        context.Result = result;
+
+        EvaluatePostconditions(targetMethod, args, context);
 
         return result;
     }

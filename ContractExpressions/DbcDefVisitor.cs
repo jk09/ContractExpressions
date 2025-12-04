@@ -62,6 +62,13 @@ internal class DbcDefVisitor : ExpressionVisitor
         return patched;
     }
 
+    private static Expression WithPatchedValueAtReturn(Expression condition, ParameterExpression contractContextParam)
+    {
+        var valueAtReturnPatcher = new ContractValueAtReturnPatchVisitor(contractContextParam);
+        var patched = valueAtReturnPatcher.Visit(condition);
+        return patched;
+    }
+
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         if (node.Method.DeclaringType == typeof(Contract))
@@ -97,7 +104,7 @@ internal class DbcDefVisitor : ExpressionVisitor
 
                 var contractContextParam = Expression.Parameter(typeof(ContractContext), "contractContext");
 
-                var patchedCondition = WithPatchedOldValues(WithPatchedResults(condition, contractContextParam), contractContextParam);
+                var patchedCondition = WithPatchedValueAtReturn(WithPatchedOldValues(WithPatchedResults(condition, contractContextParam), contractContextParam), contractContextParam);
 
                 var postconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Ensures), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
 

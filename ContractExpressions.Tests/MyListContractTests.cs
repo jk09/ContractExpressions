@@ -176,7 +176,7 @@ public class MyListContractTests
 }
 
 
-[ContractClass(typeof(ListContracts))]
+[ContractClass(typeof(MyListContracts))]
 interface IMyList : IList
 {
 
@@ -187,9 +187,9 @@ class MyList : ArrayList, IMyList
 }
 
 [ContractClassFor(typeof(IMyList))]
-class ListContracts
+class MyListContracts
 {
-    public ListContracts()
+    public MyListContracts()
     {
         Dbc.Def(static (IMyList x, object a) => x.Add(a),
                 static (IMyList x, object a) => Contract.Ensures(Contract.Result<int>() >= 0),
