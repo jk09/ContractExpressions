@@ -108,11 +108,27 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
         }
     }
 
-    private void CollectValuesAtReturn(MethodInfo targetMethod, object?[]? args, ContractContext context)
+    private void EvaluatePostconditionsOnThrow(MethodInfo targetMethod, object?[]? args, Exception exception)
     {
-        context.ValuesAtReturn ??= new Dictionary<ParameterInfo, object?>();
-    }
+        if (_contractRegistry.PostconditionsOnThrow.TryGetValue(targetMethod, out var postconditionsOnThrow))
+        {
+            foreach (var p in postconditionsOnThrow)
+            {
+                var postconditionArgs = new List<object?>
+                 {
+                    _target
+                };
+                if (args != null)
+                {
+                    postconditionArgs.AddRange(args);
+                }
+                postconditionArgs.Add(exception);
 
+                ContractAwareProxy<TIntf>.InvokeContract(p, postconditionArgs.ToArray(), targetMethod);
+            }
+
+        }
+    }
 
 
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
@@ -125,8 +141,17 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 
         CollectOldValues(targetMethod, args, context);
 
-        var result = targetMethod.Invoke(_target, args);
-        context.Result = result;
+        object? result = null;
+        try
+        {
+            result = targetMethod.Invoke(_target, args);
+            context.Result = result;
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException != null)
+        {
+            EvaluatePostconditionsOnThrow(targetMethod, args, ex.InnerException);
+            throw ex.InnerException;
+        }
 
         EvaluatePostconditions(targetMethod, args, context);
 

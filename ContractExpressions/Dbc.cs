@@ -105,12 +105,19 @@ public static class Dbc
         {
             contractRegistry.OldValueCollectors[method] = new Dictionary<PropertyInfo, Delegate>();
         }
+        if (!contractRegistry.PostconditionsOnThrow.ContainsKey(method))
+        {
+            contractRegistry.PostconditionsOnThrow[method] = new List<Invokable>();
+        }
+
 
 
         foreach (var expr in contractDefExprs)
         {
             var visitor = new DbcDefVisitor(typeof(TIntf));
             visitor.Visit(expr);
+
+
 
             foreach (var precondition in visitor.Preconditions)
             {
@@ -128,6 +135,11 @@ public static class Dbc
                 {
                     contractRegistry.OldValueCollectors[method].Add(property, collectorDelegate);
                 }
+            }
+
+            foreach (var postconditionOnThrow in visitor.PostconditionsOnThrow)
+            {
+                contractRegistry.PostconditionsOnThrow[method].Add(new Invokable(expr, postconditionOnThrow));
             }
         }
     }
