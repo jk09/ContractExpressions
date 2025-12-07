@@ -2,85 +2,89 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reflection;
 
-namespace ContractExpr;
+namespace ContractExpressions;
 
-internal sealed class ContractViolationException : Exception
-{
-    public ContractFailureKind ContractFailureKind { get; init; }
 
-    public ContractViolationException(ContractFailureKind kind, string? message = null) : base(message)
-    {
-        ContractFailureKind = kind;
-    }
-}
-
-internal static class ExceptionExtensions
-{
-    public static void AddContractData(this ContractViolationException ex, string contractDescription)
-    {
-        ex.Data[typeof(ContractExceptionData)] = new ContractExceptionData(contractDescription);
-    }
-
-    public static ContractExceptionData? GetContractData(this ContractViolationException ex)
-    {
-        if (ex.Data.Contains(typeof(ContractExceptionData)))
-        {
-            return ex.Data[typeof(ContractExceptionData)] as ContractExceptionData;
-        }
-        return null;
-    }
-}
-
-internal record ContractExceptionData(string ContractDescription);
 
 internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 {
     private TIntf _target = null!;
-    private static readonly ContractDelegates _contracts;
+    private static readonly ContractRegistry _contractRegistry = ContractRegistry.Instance;
 
     static ContractAwareProxy()
     {
-        var contractClassType = typeof(TIntf).GetCustomAttributesData()
-            .FirstOrDefault(x => x.AttributeType == typeof(ContractClassAttribute))?.ConstructorArguments[0].Value as Type;
+        var contractClassAttr = typeof(TIntf).GetCustomAttribute<ContractClassAttribute>();
 
-
-        if (contractClassType != null)
+        if (contractClassAttr != null)
         {
-            // run Dbc.Def(...) in ctor
-            var contractClass = Activator.CreateInstance(contractClassType);
-            _contracts = ContractRegistry.Get(typeof(TIntf));
+            var typeContainingContracts = contractClassAttr.TypeContainingContracts;
 
-        }
-        else
-        {
-            _contracts = ContractDelegates.Empty;
+            var contractClassForAttr = typeContainingContracts.GetCustomAttribute<ContractClassForAttribute>();
+            if (contractClassForAttr == null || contractClassForAttr.TypeContractsAreFor != typeof(TIntf))
+            {
+                throw new InvalidOperationException($"Type '{typeContainingContracts.FullName}' is marked with ContractClassAttribute for '{typeof(TIntf).FullName}', but it does not have ContractClassForAttribute for that interface.");
+            }
+
+            CollectContracts(typeContainingContracts);
         }
     }
 
-    private void InvokeContract(Invokable contract, object?[] args, MethodInfo targetMethod)
+    private static void CollectContracts(Type type)
     {
+        var ctor = type.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        Debug.Assert(ctor != null, $"Type {type.FullName} must have a default constructor");
+        _ = ctor!.Invoke(null);
+    }
+
+    private static void InvokeContract(Invokable contractInvokable, object?[] args, MethodInfo targetMethod)
+    {
+        Contract.ContractFailed += (sender, e) =>
+        {
+            e.SetUnwind();
+        };
         try
         {
-            contract.Delegate.DynamicInvoke(args);
+            contractInvokable.Delegate.DynamicInvoke(args);
         }
-        catch (TargetInvocationException ex) when (ex.InnerException is ContractViolationException innerEx)
+        catch (TargetInvocationException ex) when (ex.InnerException?.GetType().FullName == "System.Diagnostics.Contracts.ContractException")
         {
-            innerEx.AddContractData($"'{targetMethod.DeclaringType?.FullName}::{targetMethod.Name}'; {contract.Representation}");
+            var contractException = ex.InnerException!;
 
-            throw innerEx;
+            AddContractExceptionData(contractException);
+            throw contractException;
+        }
+        catch (TargetInvocationException ex)
+        {
+            var innerException = ex.InnerException ?? ex;
+            AddContractExceptionData(innerException);
+            throw innerException;
+        }
+
+        void AddContractExceptionData(Exception exception)
+        {
+            exception.Data[typeof(ContractExceptionData)] = new ContractExceptionData(targetMethod, args, contractInvokable.Expression);
         }
     }
 
-
-    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    private void CollectOldValues(MethodInfo targetMethod, object?[]? args, ContractContext context)
     {
-        if (targetMethod == null) throw new ArgumentNullException(nameof(targetMethod));
-
-        var ctx = new ContractContext();
-
-        if (_contracts.Preconditions.TryGetValue(targetMethod, out var preconditions))
+        if (_contractRegistry.OldValueCollectors.ContainsKey(targetMethod))
         {
-            foreach (var p in preconditions)
+            var oldValuesCollectors = _contractRegistry.OldValueCollectors[targetMethod];
+            foreach (var oldValueCollector in oldValuesCollectors)
+            {
+                var oldValue = oldValueCollector.Value.DynamicInvoke(_target);
+                context.OldValues ??= new Dictionary<MemberInfo, object?>();
+                context.OldValues.Add(oldValueCollector.Key, oldValue);
+            }
+        }
+    }
+
+    private void EvaluatePreconditions(MethodInfo targetMethod, object?[]? args)
+    {
+        if (_contractRegistry.Preconditions.TryGetValue(targetMethod, out var preconditions))
+        {
+            foreach (var contract in preconditions)
             {
                 var preconditionArgs = new List<object?>
                 {
@@ -92,54 +96,101 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                     preconditionArgs.AddRange(args);
                 }
 
-                InvokeContract(p, preconditionArgs.ToArray(), targetMethod);
-
+                ContractAwareProxy<TIntf>.InvokeContract(contract, preconditionArgs.ToArray(), targetMethod);
             }
-
         }
+    }
 
-        var oldValuesCollectors = _contracts.OldValueCollectors;
-        var oldValues = new Dictionary<MemberInfo, object?>();
-
-        foreach (var (property, propertyCollector) in oldValuesCollectors)
+    private void EvaluatePostconditions(MethodInfo targetMethod, object?[]? args, ContractContext context)
+    {
+        if (_contractRegistry.Postconditions.TryGetValue(targetMethod, out var postconditions))
         {
-            var oldValue = propertyCollector.DynamicInvoke(_target);
-            oldValues.Add(property, oldValue);
-        }
-
-        ctx.OldValues = oldValues;
-        object? result;
-
-
-        try
-        {
-            result = targetMethod.Invoke(_target, args);
-
-            ctx.Result = result;
-        }
-        catch (TargetInvocationException ex)
-        {
-            throw ex.InnerException ?? ex;
-        }
-
-        if (_contracts.Postconditions.TryGetValue(targetMethod, out var postconditions))
-        {
-            foreach (var p in postconditions)
+            foreach (var contract in postconditions)
             {
                 var postconditionArgs = new List<object?>
-            {
-                _target
-            };
+                 {
+                    _target
+                };
                 if (args != null)
                 {
                     postconditionArgs.AddRange(args);
                 }
-                postconditionArgs.Add(ctx);
+                postconditionArgs.Add(context);
 
-                InvokeContract(p, postconditionArgs.ToArray(), targetMethod);
+                ContractAwareProxy<TIntf>.InvokeContract(contract, postconditionArgs.ToArray(), targetMethod);
+            }
+        }
+    }
+
+    private void EvaluatePostconditionsOnThrow(MethodInfo targetMethod, object?[]? args, Exception exception)
+    {
+        if (_contractRegistry.PostconditionsOnThrow.TryGetValue(targetMethod, out var postconditionsOnThrow))
+        {
+            foreach (var contract in postconditionsOnThrow)
+            {
+                var postconditionArgs = new List<object?>
+                 {
+                    _target
+                };
+                if (args != null)
+                {
+                    postconditionArgs.AddRange(args);
+                }
+                postconditionArgs.Add(exception);
+
+                ContractAwareProxy<TIntf>.InvokeContract(contract, postconditionArgs.ToArray(), targetMethod);
             }
 
         }
+    }
+
+    private void EvaluateInvariants(MethodInfo targetMethod, object?[]? args, ContractContext context)
+    {
+        if (_contractRegistry.Invariants.TryGetValue(targetMethod, out var invariants))
+        {
+            foreach (var contract in invariants)
+            {
+                var invariantArgs = new List<object?>
+                 {
+                    _target
+                };
+                if (args != null)
+                {
+                    invariantArgs.AddRange(args);
+                }
+                invariantArgs.Add(context);
+
+                ContractAwareProxy<TIntf>.InvokeContract(contract, invariantArgs.ToArray(), targetMethod);
+            }
+
+        }
+    }
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        if (targetMethod == null) throw new ArgumentNullException(nameof(targetMethod));
+
+        var context = new ContractContext();
+
+        EvaluatePreconditions(targetMethod, args);
+
+        CollectOldValues(targetMethod, args, context);
+
+        object? result = null;
+        try
+        {
+            result = targetMethod.Invoke(_target, args);
+            context.Result = result;
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException != null)
+        {
+            EvaluatePostconditionsOnThrow(targetMethod, args, ex.InnerException);
+            throw ex.InnerException;
+        }
+
+        EvaluateInvariants(targetMethod, args, context);
+
+        EvaluatePostconditions(targetMethod, args, context);
 
         return result;
     }

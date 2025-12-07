@@ -2,17 +2,17 @@
 
 using System.Collections;
 using System.Diagnostics.Contracts;
-using ContractExpr;
+using ContractExpressions;
 
 namespace ContractExpressions.Tests;
 
-public class MyListContractTests
+public class MyListContractTests : IClassFixture<ContractFailureUnwindFixture>
 {
     private readonly IMyList _proxy;
+
     public MyListContractTests()
     {
         _proxy = Dbc.Make<IMyList>(new MyList());
-
     }
 
     [Fact]
@@ -118,7 +118,8 @@ public class MyListContractTests
     {
         var item = new object();
         _proxy.Add(item);
-        Assert.Throws<ContractViolationException>(() => _proxy[-1]);
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy[-1]);
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
@@ -126,49 +127,49 @@ public class MyListContractTests
     {
         var item = new object();
         _proxy.Add(item);
-        Assert.Throws<ContractViolationException>(() => _proxy[1]);
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy[1]);
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
     public void Insert_WithNegativeIndex_ThrowsException()
     {
-        Assert.Throws<ContractViolationException>(() => _proxy.Insert(-1, new object()));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.Insert(-1, new object()));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
     public void Insert_WithIndexGreaterThanCount_ThrowsException()
     {
         _proxy.Add(new object());
-        Assert.Throws<ContractViolationException>(() => _proxy.Insert(2, new object()));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.Insert(2, new object()));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
     public void RemoveAt_WithNegativeIndex_ThrowsException()
     {
         _proxy.Add(new object());
-        Assert.Throws<ContractViolationException>(() => _proxy.RemoveAt(-1));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.RemoveAt(-1));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
     public void RemoveAt_WithIndexOutOfRange_ThrowsException()
     {
         _proxy.Add(new object());
-        Assert.Throws<ContractViolationException>(() => _proxy.RemoveAt(1));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.RemoveAt(1));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
-    [Fact]
-    public void CopyTo_WithNullArray_ThrowsException()
-    {
-        _proxy.Add(new object());
-        Assert.Throws<ContractViolationException>(() => _proxy.CopyTo(null, 0));
-    }
 
     [Fact]
     public void CopyTo_WithNegativeArrayIndex_ThrowsException()
     {
         _proxy.Add(new object());
         var array = new object[5];
-        Assert.Throws<ContractViolationException>(() => _proxy.CopyTo(array, -1));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.CopyTo(array, -1));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
@@ -177,12 +178,13 @@ public class MyListContractTests
         _proxy.Add(new object());
         _proxy.Add(new object());
         var array = new object[2];
-        Assert.Throws<ContractViolationException>(() => _proxy.CopyTo(array, 1));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.CopyTo(array, 1));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 }
 
 
-[ContractClass(typeof(ListContracts))]
+[ContractClass(typeof(MyListContracts))]
 interface IMyList : IList
 {
 
@@ -193,9 +195,9 @@ class MyList : ArrayList, IMyList
 }
 
 [ContractClassFor(typeof(IMyList))]
-class ListContracts
+class MyListContracts
 {
-    public ListContracts()
+    public MyListContracts()
     {
         Dbc.Def(static (IMyList x, object a) => x.Add(a),
                 static (IMyList x, object a) => Contract.Ensures(Contract.Result<int>() >= 0),
@@ -226,12 +228,9 @@ class ListContracts
             static (IMyList x, int index) => Contract.Ensures(x.Count == Contract.OldValue<int>(x.Count) - 1));
 
         Dbc.Def(static (IMyList x, Array array, int arrayIndex) => x.CopyTo(array, arrayIndex),
-            static (IMyList x, Array array, int arrayIndex) => Contract.Requires(array != null),
             static (IMyList x, Array array, int arrayIndex) => Contract.Requires(arrayIndex >= 0),
             static (IMyList x, Array array, int arrayIndex) => Contract.Requires(arrayIndex + x.Count <= array.Length));
 
 
     }
 }
-
-

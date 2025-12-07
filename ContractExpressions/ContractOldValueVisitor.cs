@@ -2,7 +2,7 @@ using System.Diagnostics.Contracts;
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace ContractExpr;
+namespace ContractExpressions;
 
 internal class ContractOldValueVisitor : ExpressionVisitor
 {
@@ -28,3 +28,6 @@ internal class ContractOldValueVisitor : ExpressionVisitor
     }
 
 }
+
+
+

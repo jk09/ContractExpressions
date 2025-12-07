@@ -1,37 +1,21 @@
-namespace ContractExpr;
+using System.Collections.Concurrent;
+using System.Linq.Expressions;
+using System.Reflection;
 
-internal static class ContractRegistry
+namespace ContractExpressions;
+
+
+internal class ContractRegistry
 {
-    private static Dictionary<Type, ContractDelegates> Contracts { get; } = new();
+    public static readonly ContractRegistry Instance = new();
 
-    public static void Add(Type intfType, ContractDelegates contracts)
-    {
-        if (Contracts.TryGetValue(intfType, out var existingContracts))
-        {
-            // merge
-            foreach (var (k, v) in contracts.Preconditions)
-            {
-                existingContracts.Preconditions.AddItem(k, v);
-            }
+    public IDictionary<MethodInfo, IList<Invokable>> Preconditions { get; } = new ConcurrentDictionary<MethodInfo, IList<Invokable>>();
 
-            foreach (var (k, v) in contracts.Postconditions)
-            {
-                existingContracts.Postconditions.AddItem(k, v);
-            }
+    public IDictionary<MethodInfo, IList<Invokable>> Postconditions { get; } = new ConcurrentDictionary<MethodInfo, IList<Invokable>>();
 
-            foreach (var (k, v) in contracts.OldValueCollectors)
-            {
-                existingContracts.OldValueCollectors[k] = v;
-            }
-        }
-        else
-        {
-            Contracts[intfType] = contracts;
-        }
-    }
+    public IDictionary<MethodInfo, IList<Invokable>> PostconditionsOnThrow { get; } = new ConcurrentDictionary<MethodInfo, IList<Invokable>>();
 
-    public static ContractDelegates Get(Type intfType)
-    {
-        return Contracts[intfType];
-    }
+    public IDictionary<MethodInfo, IList<Invokable>> Invariants { get; } = new ConcurrentDictionary<MethodInfo, IList<Invokable>>();
+
+    public IDictionary<MethodInfo, IDictionary<PropertyInfo, Delegate>> OldValueCollectors { get; } = new ConcurrentDictionary<MethodInfo, IDictionary<PropertyInfo, Delegate>>();
 }
