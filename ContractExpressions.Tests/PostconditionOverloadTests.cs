@@ -12,7 +12,8 @@ public class PostconditionOverloadTests
     public void GetValue_ReturnsNull_ThrowsException()
     {
         var proxy = Dbc.Make<IPostconditionOverloadClass1>(new PostconditionOverloadClass());
-        Assert.Throws<ContractViolationException>(() => proxy.GetValue());
+        var ex = Assert.ThrowsAny<Exception>(() => proxy.GetValue());
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
 
@@ -20,8 +21,9 @@ public class PostconditionOverloadTests
     public void GetValue_ReturnsNull_ThrowsExceptionWithMessage()
     {
         var proxy = Dbc.Make<IPostconditionOverloadClass3>(new PostconditionOverloadClass());
-        var ex = Assert.Throws<ContractViolationException>(() => proxy.GetValue());
-        Assert.Equal("Result cannot be null", ex.Message);
+        var ex = Assert.ThrowsAny<Exception>(() => proxy.GetValue());
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
+        Assert.Contains("Result cannot be null", ex.Message);
     }
 
 

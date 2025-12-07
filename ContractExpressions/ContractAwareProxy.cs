@@ -4,6 +4,8 @@ using System.Reflection;
 
 namespace ContractExpressions;
 
+
+
 internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 {
     private TIntf _target = null!;
@@ -36,18 +38,20 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 
     private static void InvokeContract(Invokable contractInvokable, object?[] args, MethodInfo targetMethod)
     {
+        Contract.ContractFailed += (sender, e) =>
+        {
+            e.SetUnwind();
+        };
         try
         {
             contractInvokable.Delegate.DynamicInvoke(args);
         }
-        catch (TargetInvocationException ex) when (ex.InnerException is ContractException contractException)
+        catch (TargetInvocationException ex) when (ex.InnerException?.GetType().FullName == "System.Diagnostics.Contracts.ContractException")
         {
+            var contractException = ex.InnerException!;
+
             contractException.Data[typeof(ContractExceptionData)] = new ContractExceptionData(targetMethod, args, contractInvokable.Expression);
             throw contractException;
-        }
-        catch (TargetInvocationException ex)
-        {
-            throw ex.InnerException ?? ex;
         }
     }
 

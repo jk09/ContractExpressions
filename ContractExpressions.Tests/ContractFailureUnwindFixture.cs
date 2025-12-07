@@ -2,9 +2,9 @@ using System.Diagnostics.Contracts;
 
 namespace ContractExpressions.Tests;
 
-public class ContractFailedFixture : IDisposable
+public class ContractFailureUnwindFixture : IDisposable
 {
-    public ContractFailedFixture()
+    public ContractFailureUnwindFixture()
     {
         Contract.ContractFailed += OnContractFailed;
     }

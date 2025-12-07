@@ -12,30 +12,31 @@ public class PreconditionOverloadTests
     public void Add_NullItem_ThrowsException()
     {
         var proxy = Dbc.Make<IPreconditionOverloadClass1>(new PreconditionOverloadClass());
-        Assert.Throws<ContractViolationException>(() => proxy.DoSomething(null!));
+        var ex = Assert.ThrowsAny<Exception>(() => proxy.DoSomething(null!));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
     public void Add_NullItem_ThrowsArgumentNullException()
     {
         var proxy = Dbc.Make<IPreconditionOverloadClass2>(new PreconditionOverloadClass());
-        Assert.Throws<ArgumentNullException>(() => proxy.DoSomething(null!));
+        var ex = Assert.Throws<ArgumentNullException>(() => proxy.DoSomething(null!));
     }
 
     [Fact]
     public void Add_NullItem_ThrowsExceptionWithMessage()
     {
         var proxy = Dbc.Make<IPreconditionOverloadClass3>(new PreconditionOverloadClass());
-        var ex = Assert.Throws<ContractViolationException>(() => proxy.DoSomething(null!));
-        Assert.Equal("Object cannot be null", ex.Message);
+        var ex = Assert.ThrowsAny<Exception>(() => proxy.DoSomething(null!));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
+        Assert.Contains("Object cannot be null", ex.Message);
     }
     [Fact]
     public void Add_NullItem_ThrowsArgumentNullExceptionWithMessage()
     {
         var proxy = Dbc.Make<IPreconditionOverloadClass4>(new PreconditionOverloadClass());
         var ex = Assert.Throws<ArgumentNullException>(() => proxy.DoSomething(null!));
-        Assert.Equal("Object cannot be null", ex.Message);
-
+        Assert.Contains("Object cannot be null", ex.Message);
     }
 
 

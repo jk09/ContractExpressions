@@ -6,7 +6,7 @@ using ContractExpressions;
 
 namespace ContractExpressions.Tests;
 
-public class MyListContractTests : IClassFixture<ContractFailedFixture>
+public class MyListContractTests : IClassFixture<ContractFailureUnwindFixture>
 {
     private readonly IMyList _proxy;
 
@@ -118,7 +118,8 @@ public class MyListContractTests : IClassFixture<ContractFailedFixture>
     {
         var item = new object();
         _proxy.Add(item);
-        Assert.Throws<ContractViolationException>(() => _proxy[-1]);
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy[-1]);
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
@@ -126,34 +127,39 @@ public class MyListContractTests : IClassFixture<ContractFailedFixture>
     {
         var item = new object();
         _proxy.Add(item);
-        Assert.Throws<ContractViolationException>(() => _proxy[1]);
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy[1]);
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
     public void Insert_WithNegativeIndex_ThrowsException()
     {
-        Assert.Throws<ContractViolationException>(() => _proxy.Insert(-1, new object()));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.Insert(-1, new object()));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
     public void Insert_WithIndexGreaterThanCount_ThrowsException()
     {
         _proxy.Add(new object());
-        Assert.Throws<ContractViolationException>(() => _proxy.Insert(2, new object()));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.Insert(2, new object()));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
     public void RemoveAt_WithNegativeIndex_ThrowsException()
     {
         _proxy.Add(new object());
-        Assert.Throws<ContractViolationException>(() => _proxy.RemoveAt(-1));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.RemoveAt(-1));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
     public void RemoveAt_WithIndexOutOfRange_ThrowsException()
     {
         _proxy.Add(new object());
-        Assert.Throws<ContractViolationException>(() => _proxy.RemoveAt(1));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.RemoveAt(1));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
 
@@ -162,7 +168,8 @@ public class MyListContractTests : IClassFixture<ContractFailedFixture>
     {
         _proxy.Add(new object());
         var array = new object[5];
-        Assert.Throws<ContractViolationException>(() => _proxy.CopyTo(array, -1));
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.CopyTo(array, -1));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 
     [Fact]
@@ -171,9 +178,8 @@ public class MyListContractTests : IClassFixture<ContractFailedFixture>
         _proxy.Add(new object());
         _proxy.Add(new object());
         var array = new object[2];
-        Assert.Throws<ContractViolationException>(() =>
-        _proxy.CopyTo(array, 1)
-        );
+        var ex = Assert.ThrowsAny<Exception>(() => _proxy.CopyTo(array, 1));
+        Assert.Equal("System.Diagnostics.Contracts.ContractException", ex.GetType().FullName);
     }
 }
 
