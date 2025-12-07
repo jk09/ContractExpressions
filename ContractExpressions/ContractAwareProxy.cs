@@ -50,8 +50,19 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
         {
             var contractException = ex.InnerException!;
 
-            contractException.Data[typeof(ContractExceptionData)] = new ContractExceptionData(targetMethod, args, contractInvokable.Expression);
+            AddContractExceptionData(contractException);
             throw contractException;
+        }
+        catch (TargetInvocationException ex)
+        {
+            var innerException = ex.InnerException ?? ex;
+            AddContractExceptionData(innerException);
+            throw innerException;
+        }
+
+        void AddContractExceptionData(Exception exception)
+        {
+            exception.Data[typeof(ContractExceptionData)] = new ContractExceptionData(targetMethod, args, contractInvokable.Expression);
         }
     }
 
