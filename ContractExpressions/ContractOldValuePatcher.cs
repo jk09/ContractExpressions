@@ -4,10 +4,10 @@ using System.Reflection;
 
 namespace ContractExpressions;
 
-internal class ContractOldValuePatchVisitor : ExpressionVisitor
+internal class ContractOldValuePatcher : ExpressionVisitor
 {
     private readonly Expression _contractContextArg;
-    public ContractOldValuePatchVisitor(Expression contractContextArg)
+    public ContractOldValuePatcher(Expression contractContextArg)
     {
         _contractContextArg = contractContextArg;
     }

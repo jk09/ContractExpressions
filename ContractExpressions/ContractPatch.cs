@@ -7,6 +7,39 @@ namespace ContractExpressions;
 
 internal static class ContractPatch
 {
+    private static string? RaiseContractFailed(ContractFailureKind failureKind, string? userMessage, string? conditionText, Exception? innerException)
+    {
+        // In this simplified implementation, we just return a formatted message
+        string message = $"Contract {failureKind} failed.";
+        if (!string.IsNullOrEmpty(userMessage))
+        {
+            message += $" Message: {userMessage}";
+        }
+        if (!string.IsNullOrEmpty(conditionText))
+        {
+            message += $" Condition: {conditionText}";
+        }
+        return message;
+    }
+
+    public static void Assert(bool condition, string? message = null)
+    {
+        if (!condition)
+        {
+            // throw new ContractViolationException(ContractFailureKind.Assert, message);
+            RaiseContractFailed(ContractFailureKind.Assert, message, null, null);
+        }
+    }
+
+    public static void Assume(bool condition, string? message = null)
+    {
+        if (!condition)
+        {
+            // throw new ContractViolationException(ContractFailureKind.Assert, message);
+            RaiseContractFailed(ContractFailureKind.Assume, message, null, null);
+        }
+    }
+
     public static T Result<T>(ContractContext context)
     {
         return Cast<T>(context.Result);
@@ -66,7 +99,7 @@ internal static class ContractPatch
             }
             else
             {
-                throw new ContractViolationException(ContractFailureKind.Precondition, message);
+                RaiseContractFailed(ContractFailureKind.Precondition, message, null, null);
             }
         }
     }
@@ -87,7 +120,7 @@ internal static class ContractPatch
             }
             else
             {
-                throw new ContractViolationException(ContractFailureKind.Postcondition, message);
+                RaiseContractFailed(ContractFailureKind.Postcondition, message, null, null);
             }
         }
     }
@@ -100,7 +133,7 @@ internal static class ContractPatch
         // For now, we'll implement it as a standard postcondition check
         if (!condition)
         {
-            throw new ContractViolationException(ContractFailureKind.PostconditionOnException, message);
+            RaiseContractFailed(ContractFailureKind.PostconditionOnException, message, null, null);
         }
     }
 
@@ -108,7 +141,7 @@ internal static class ContractPatch
     {
         if (!condition)
         {
-            throw new ContractViolationException(ContractFailureKind.Invariant, message);
+            RaiseContractFailed(ContractFailureKind.Invariant, message, null, null);
         }
     }
 

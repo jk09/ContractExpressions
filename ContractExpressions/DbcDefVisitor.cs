@@ -24,6 +24,47 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
         return base.Visit(node);
     }
 
+    protected override Expression VisitMethodCall(MethodCallExpression node)
+    {
+        if (node.Method.DeclaringType == typeof(Contract))
+        {
+            switch (node.Method.Name)
+            {
+                case nameof(Contract.Requires):
+                    GetPreconditionDelegate(node, out var preconditionDelegate);
+                    Preconditions.Add(preconditionDelegate);
+                    break;
+                case nameof(Contract.Ensures):
+                    GetPostconditionDelegate(node, out var postconditionDelegate, out var oldValueCollectorDelegates);
+                    Postconditions.Add(postconditionDelegate);
+                    foreach (var property in oldValueCollectorDelegates.Keys)
+                    {
+                        if (!OldValueCollectors.ContainsKey(property))
+                        {
+                            OldValueCollectors.Add(property, oldValueCollectorDelegates[property]);
+                        }
+                    }
+                    break;
+
+                case nameof(Contract.EnsuresOnThrow):
+                    GetEnsuresOnThrowDelegate(node, out var ensuresOnThrowDelegate);
+                    PostconditionsOnThrow.Add(ensuresOnThrowDelegate);
+                    break;
+                case nameof(Contract.Assert):
+                    var assertCallExpr = new ContractAssertPatcher().Visit(node);
+                    return assertCallExpr!;
+                case nameof(Contract.Assume):
+                    var assumeCallExpr = new ContractAssumePatcher().Visit(node);
+                    return assumeCallExpr!;
+
+                case nameof(Contract.Invariant):
+                    break;
+            }
+        }
+
+        return base.VisitMethodCall(node);
+    }
+
     private void AddOldValueCollectors(Expression condition, out IDictionary<PropertyInfo, Delegate> oldValueCollectors)
     {
         var oldValueVisitor = new ContractOldValueVisitor();
@@ -42,28 +83,6 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
             }
         }
     }
-
-    private static Expression WithPatchedResults(Expression condition, ParameterExpression contractContextParam)
-    {
-        var resultPatcher = new ContractResultPatchVisitor(contractContextParam);
-        var patched = resultPatcher.Visit(condition);
-        return patched;
-    }
-
-    private static Expression WithPatchedOldValues(Expression condition, ParameterExpression contractContextParam)
-    {
-        var oldValuePatcher = new ContractOldValuePatchVisitor(contractContextParam);
-        var patched = oldValuePatcher.Visit(condition);
-        return patched;
-    }
-
-    private static Expression WithPatchedValueAtReturn(Expression condition, ParameterExpression contractContextParam)
-    {
-        var valueAtReturnPatcher = new ContractValueAtReturnPatchVisitor(contractContextParam);
-        var patched = valueAtReturnPatcher.Visit(condition);
-        return patched;
-    }
-
     private void GetPreconditionDelegate(MethodCallExpression contractRequiresExpr, out Delegate contractDlg)
     {
         var condition = contractRequiresExpr.Arguments[0];
@@ -101,7 +120,12 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
         AddOldValueCollectors(condition, out oldValueCollectorDlgs);
 
         var contractContextParam = Expression.Parameter(typeof(ContractContext), "contractContext");
-        var patchedCondition = WithPatchedValueAtReturn(WithPatchedOldValues(WithPatchedResults(condition, contractContextParam), contractContextParam), contractContextParam);
+
+        var condition1 = new ContractResultPatcher(contractContextParam).Visit(condition);
+        var condition2 = new ContractOldValuePatcher(contractContextParam).Visit(condition1);
+        var condition3 = new ContractValueAtReturnPatcher(contractContextParam).Visit(condition2);
+
+        var patchedCondition = condition3;
 
         var postconditionPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Ensures), new Type[] { typeof(bool), typeof(string), typeof(Type) })!;
 
@@ -136,42 +160,9 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
         contractDlg = contract.Compile();
     }
 
-    protected override Expression VisitMethodCall(MethodCallExpression node)
-    {
 
-        if (node.Method.DeclaringType == typeof(Contract))
-        {
-            switch (node.Method.Name)
-            {
-                case nameof(Contract.Requires):
-                    GetPreconditionDelegate(node, out var preconditionDelegate);
-                    Preconditions.Add(preconditionDelegate);
-                    break;
-                case nameof(Contract.Ensures):
-                    GetPostconditionDelegate(node, out var postconditionDelegate, out var oldValueCollectorDelegate);
-                    Postconditions.Add(postconditionDelegate);
-                    foreach (var property in oldValueCollectorDelegate.Keys)
-                    {
-                        if (!OldValueCollectors.ContainsKey(property))
-                        {
-                            OldValueCollectors.Add(property, oldValueCollectorDelegate[property]);
-                        }
-                    }
-                    break;
-
-                case nameof(Contract.EnsuresOnThrow):
-                    GetEnsuresOnThrowDelegate(node, out var ensuresOnThrowDelegate);
-                    PostconditionsOnThrow.Add(ensuresOnThrowDelegate);
-                    break;
-                case nameof(Contract.Invariant):
-                    break;
-                default:
-                    return base.VisitMethodCall(node);
-            }
-        }
-
-        return base.VisitMethodCall(node);
-    }
 
 
 }
+
+

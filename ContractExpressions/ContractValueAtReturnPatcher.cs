@@ -4,11 +4,11 @@ using System.Reflection;
 
 namespace ContractExpressions;
 
-internal class ContractValueAtReturnPatchVisitor : ExpressionVisitor
+internal class ContractValueAtReturnPatcher : ExpressionVisitor
 {
     private readonly Expression _contractContextArg;
 
-    public ContractValueAtReturnPatchVisitor(Expression contractContextArg)
+    public ContractValueAtReturnPatcher(Expression contractContextArg)
     {
         _contractContextArg = contractContextArg;
     }
