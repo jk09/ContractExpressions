@@ -8,11 +8,11 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
 {
     private IList<ParameterExpression>? _contractParameters;
     private readonly Type _contractType = contractType;
-    public readonly IList<Delegate> Preconditions = new List<Delegate>();
-    public readonly IList<Delegate> Postconditions = new List<Delegate>();
-    public readonly IList<Delegate> PostconditionsOnThrow = new List<Delegate>();
-
-    public readonly IDictionary<PropertyInfo, Delegate> OldValueCollectors = new Dictionary<PropertyInfo, Delegate>();
+    public IList<Delegate> Preconditions { get; } = new List<Delegate>();
+    public IList<Delegate> Postconditions { get; } = new List<Delegate>();
+    public IList<Delegate> PostconditionsOnThrow { get; } = new List<Delegate>();
+    public IList<Delegate> Invariants { get; } = new List<Delegate>();
+    public IDictionary<PropertyInfo, Delegate> OldValueCollectors { get; } = new Dictionary<PropertyInfo, Delegate>();
 
     public override Expression? Visit(Expression? node)
     {
@@ -58,6 +58,9 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
                     return assumeCallExpr!;
 
                 case nameof(Contract.Invariant):
+                    var invariantCallExpr = node;
+                    GetInvariantDelegate(invariantCallExpr, out var invariantDelegate);
+                    Invariants.Add(invariantDelegate);
                     break;
             }
         }
@@ -83,6 +86,7 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
             }
         }
     }
+
     private void GetPreconditionDelegate(MethodCallExpression contractRequiresExpr, out Delegate contractDlg)
     {
         var condition = contractRequiresExpr.Arguments[0];
@@ -160,9 +164,18 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
         contractDlg = contract.Compile();
     }
 
+    private void GetInvariantDelegate(MethodCallExpression contractInvariantExpr, out Delegate contractDlg)
+    {
+        var condition = contractInvariantExpr.Arguments[0];
+        var message = contractInvariantExpr.Arguments.Count > 1 ? contractInvariantExpr.Arguments[1] : Expression.Constant(null, typeof(string));
 
+        MethodInfo invariantPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Invariant), new Type[] { typeof(bool), typeof(string) })!;
 
+        var invariantParams = new List<ParameterExpression>(_contractParameters!);
 
+        var contract = Expression.Lambda(Expression.Call(null, invariantPatch, condition, message), $"Invariant_1", invariantParams);
+        contractDlg = contract.Compile();
+    }
 }
 
 

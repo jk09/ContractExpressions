@@ -6,13 +6,13 @@ using ContractExpressions;
 
 namespace ContractExpressions.Tests;
 
-public class MyListContractTests
+public class MyListContractTests : IClassFixture<ContractFailedFixture>
 {
     private readonly IMyList _proxy;
+
     public MyListContractTests()
     {
         _proxy = Dbc.Make<IMyList>(new MyList());
-
     }
 
     [Fact]
@@ -171,7 +171,9 @@ public class MyListContractTests
         _proxy.Add(new object());
         _proxy.Add(new object());
         var array = new object[2];
-        Assert.Throws<ContractViolationException>(() => _proxy.CopyTo(array, 1));
+        Assert.Throws<ContractViolationException>(() =>
+        _proxy.CopyTo(array, 1)
+        );
     }
 }
 
@@ -224,11 +226,5 @@ class MyListContracts
             static (IMyList x, Array array, int arrayIndex) => Contract.Requires(arrayIndex + x.Count <= array.Length));
 
 
-    }
-
-    [ContractInvariantMethod]
-    public void ObjectInvariant()
-    {
-        Contract.Invariant(this != null, "Instance cannot be null");
     }
 }

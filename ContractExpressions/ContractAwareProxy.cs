@@ -40,10 +40,10 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
         {
             contractInvokable.Delegate.DynamicInvoke(args);
         }
-        catch (TargetInvocationException ex) when (ex.InnerException is ContractViolationException innerEx)
+        catch (TargetInvocationException ex) when (ex.InnerException is ContractException contractException)
         {
-            innerEx.AddContractData($"'{targetMethod.DeclaringType?.FullName}::{targetMethod.Name}'; {contractInvokable.Expression}");
-            throw innerEx;
+            contractException.Data[typeof(ContractExceptionData)] = new ContractExceptionData(targetMethod, args, contractInvokable.Expression);
+            throw contractException;
         }
         catch (TargetInvocationException ex)
         {
@@ -69,7 +69,7 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
     {
         if (_contractRegistry.Preconditions.TryGetValue(targetMethod, out var preconditions))
         {
-            foreach (var p in preconditions)
+            foreach (var contract in preconditions)
             {
                 var preconditionArgs = new List<object?>
                 {
@@ -81,7 +81,7 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                     preconditionArgs.AddRange(args);
                 }
 
-                ContractAwareProxy<TIntf>.InvokeContract(p, preconditionArgs.ToArray(), targetMethod);
+                ContractAwareProxy<TIntf>.InvokeContract(contract, preconditionArgs.ToArray(), targetMethod);
             }
         }
     }
@@ -90,7 +90,7 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
     {
         if (_contractRegistry.Postconditions.TryGetValue(targetMethod, out var postconditions))
         {
-            foreach (var p in postconditions)
+            foreach (var contract in postconditions)
             {
                 var postconditionArgs = new List<object?>
                  {
@@ -102,9 +102,8 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                 }
                 postconditionArgs.Add(context);
 
-                ContractAwareProxy<TIntf>.InvokeContract(p, postconditionArgs.ToArray(), targetMethod);
+                ContractAwareProxy<TIntf>.InvokeContract(contract, postconditionArgs.ToArray(), targetMethod);
             }
-
         }
     }
 
@@ -112,7 +111,7 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
     {
         if (_contractRegistry.PostconditionsOnThrow.TryGetValue(targetMethod, out var postconditionsOnThrow))
         {
-            foreach (var p in postconditionsOnThrow)
+            foreach (var contract in postconditionsOnThrow)
             {
                 var postconditionArgs = new List<object?>
                  {
@@ -124,12 +123,33 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
                 }
                 postconditionArgs.Add(exception);
 
-                ContractAwareProxy<TIntf>.InvokeContract(p, postconditionArgs.ToArray(), targetMethod);
+                ContractAwareProxy<TIntf>.InvokeContract(contract, postconditionArgs.ToArray(), targetMethod);
             }
 
         }
     }
 
+    private void EvaluateInvariants(MethodInfo targetMethod, object?[]? args, ContractContext context)
+    {
+        if (_contractRegistry.Invariants.TryGetValue(targetMethod, out var invariants))
+        {
+            foreach (var contract in invariants)
+            {
+                var invariantArgs = new List<object?>
+                 {
+                    _target
+                };
+                if (args != null)
+                {
+                    invariantArgs.AddRange(args);
+                }
+                invariantArgs.Add(context);
+
+                ContractAwareProxy<TIntf>.InvokeContract(contract, invariantArgs.ToArray(), targetMethod);
+            }
+
+        }
+    }
 
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
@@ -152,6 +172,8 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
             EvaluatePostconditionsOnThrow(targetMethod, args, ex.InnerException);
             throw ex.InnerException;
         }
+
+        EvaluateInvariants(targetMethod, args, context);
 
         EvaluatePostconditions(targetMethod, args, context);
 

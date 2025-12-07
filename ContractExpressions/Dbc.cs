@@ -117,8 +117,6 @@ public static class Dbc
             var visitor = new DbcDefVisitor(typeof(TIntf));
             visitor.Visit(expr);
 
-
-
             foreach (var precondition in visitor.Preconditions)
             {
                 contractRegistry.Preconditions[method].Add(new Invokable(expr, precondition));
@@ -140,6 +138,11 @@ public static class Dbc
             foreach (var postconditionOnThrow in visitor.PostconditionsOnThrow)
             {
                 contractRegistry.PostconditionsOnThrow[method].Add(new Invokable(expr, postconditionOnThrow));
+            }
+
+            foreach (var invariant in visitor.Invariants)
+            {
+                contractRegistry.Invariants[method].Add(new Invokable(expr, invariant));
             }
         }
     }

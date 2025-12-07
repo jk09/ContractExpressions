@@ -15,5 +15,7 @@ internal class ContractRegistry
 
     public IDictionary<MethodInfo, IList<Invokable>> PostconditionsOnThrow { get; } = new ConcurrentDictionary<MethodInfo, IList<Invokable>>();
 
+    public IDictionary<MethodInfo, IList<Invokable>> Invariants { get; } = new ConcurrentDictionary<MethodInfo, IList<Invokable>>();
+
     public IDictionary<MethodInfo, IDictionary<PropertyInfo, Delegate>> OldValueCollectors { get; } = new ConcurrentDictionary<MethodInfo, IDictionary<PropertyInfo, Delegate>>();
 }

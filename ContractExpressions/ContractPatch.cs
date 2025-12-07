@@ -9,17 +9,7 @@ internal static class ContractPatch
 {
     private static string? RaiseContractFailed(ContractFailureKind failureKind, string? userMessage, string? conditionText, Exception? innerException)
     {
-        // In this simplified implementation, we just return a formatted message
-        string message = $"Contract {failureKind} failed.";
-        if (!string.IsNullOrEmpty(userMessage))
-        {
-            message += $" Message: {userMessage}";
-        }
-        if (!string.IsNullOrEmpty(conditionText))
-        {
-            message += $" Condition: {conditionText}";
-        }
-        return message;
+        return ContractHelper.RaiseContractFailedEvent(failureKind, userMessage, conditionText, innerException);
     }
 
     public static void Assert(bool condition, string? message = null)
