@@ -109,7 +109,10 @@ public static class Dbc
         {
             contractRegistry.PostconditionsOnThrow[method] = new List<Invokable>();
         }
-
+        if (!contractRegistry.Invariants.ContainsKey(method))
+        {
+            contractRegistry.Invariants[method] = new List<Invokable>();
+        }
 
 
         foreach (var expr in contractDefExprs)
