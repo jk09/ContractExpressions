@@ -38,10 +38,6 @@ internal class ContractAwareProxy<TIntf> : DispatchProxy where TIntf : class
 
     private static void InvokeContract(Invokable contractInvokable, object?[] args, MethodInfo targetMethod)
     {
-        Contract.ContractFailed += (sender, e) =>
-        {
-            e.SetUnwind();
-        };
         try
         {
             contractInvokable.Delegate.DynamicInvoke(args);

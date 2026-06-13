@@ -7,16 +7,22 @@ namespace ContractExpressions;
 
 internal static class ContractPatch
 {
-    private static string? RaiseContractFailed(ContractFailureKind failureKind, string? userMessage, string? conditionText, Exception? innerException)
+    // Raises the ContractFailed event and, if the failure was not handled by a subscriber,
+    // calls TriggerFailure to throw ContractException. This ensures contracts are enforced
+    // even when no Contract.ContractFailed handler is registered.
+    private static void RaiseContractFailed(ContractFailureKind failureKind, string? userMessage, string? conditionText, Exception? innerException)
     {
-        return ContractHelper.RaiseContractFailedEvent(failureKind, userMessage, conditionText, innerException);
+        var displayMessage = ContractHelper.RaiseContractFailedEvent(failureKind, userMessage, conditionText, innerException);
+        if (displayMessage != null)
+        {
+            ContractHelper.TriggerFailure(failureKind, displayMessage, userMessage, conditionText, innerException);
+        }
     }
 
     public static void Assert(bool condition, string? message = null)
     {
         if (!condition)
         {
-            // throw new ContractViolationException(ContractFailureKind.Assert, message);
             RaiseContractFailed(ContractFailureKind.Assert, message, null, null);
         }
     }
@@ -25,7 +31,6 @@ internal static class ContractPatch
     {
         if (!condition)
         {
-            // throw new ContractViolationException(ContractFailureKind.Assert, message);
             RaiseContractFailed(ContractFailureKind.Assume, message, null, null);
         }
     }
@@ -117,10 +122,6 @@ internal static class ContractPatch
 
     public static void EnsuresOnThrow<TException>(bool condition, string? message = null) where TException : Exception
     {
-        // EnsuresOnThrow is checked when the specified exception is thrown
-        // In runtime, this is typically a no-op unless the exception is actually thrown
-        // Implementation would require exception filtering which is complex
-        // For now, we'll implement it as a standard postcondition check
         if (!condition)
         {
             RaiseContractFailed(ContractFailureKind.PostconditionOnException, message, null, null);

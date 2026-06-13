@@ -1,6 +1,3 @@
-#define CONTRACTS_FULL
-
-
 using System.Reflection;
 
 namespace ContractExpressions;
