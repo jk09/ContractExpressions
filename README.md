@@ -2,7 +2,9 @@
 
 ## Description
 
-`ContractExpressions` provides the Design by Contract functionality in .NET developers.
+The `ContractExpressions` project provides the Design by Contract functionality in .NET developers. It is meant as a lightweight replacement of the legacy .NET Framework [Code contracts](https://learn.microsoft.com/en-us/dotnet/framework/debug-trace-profile/code-contracts).
+
+The [source code](../ContractExpressions/CodeContracts/CodeContracts.sln) of the legacy framework is based on the compile-time rewriting of the program using the `System.Diagnostics.Contracts` API.
 
 A `contract` is a predicate about the arguments and return values of object methods, and about the state of the object itself. The predicates are verified before and after a method call. If any such predicate returns false, the contract is `violated`. Violation of a contract indicates an inconsistent state of the program. 
 
@@ -41,19 +43,20 @@ An invariant verifies the consistent state of an object. It is a predicate about
 - the abstract syntax tree of a Web page DOM is consistent
 - adding a new element into a sorted binary tree keeps the tree sorted
 
-Like preconditions and postconditions any object can have any number of invariants attached to it. The invariants are verified after the object is created, and before and after each method call.   
+Like preconditions and postconditions any object can have any number of invariants attached to it. The invariants are verified 
 
+- after the object is created
+- before and after each method call
 
+## Implementation
 
-ContractExpressions is a lightweight re-implementation of the design-by-contract functionality implemented in the .NET Framework and discontinued in the .NET Core.
+The code contracts is implemented using the .NET API in the namespace `System.Diagnostics.Contracts` like the legacy framework. However, instead of the compile-time rewriting it utilized the 
+.NET `System.Reflection.DispatchProxy` class to define contracts on a per-interface basis using method call interception. 
 
-It uses the original API of the `System.Diagnostics.Contracts` namespace, with a slightly different semantics.
+### API
 
-Unlike a build-time code rewrite of the .NET Framework implementation the contracts are dynamically parsed and evaluated during the runtime. 
-The contracts can only be defined per interface methods rather than per the concrete methods. This is an acceptable limitation, as contracts defined per concrete
-methods have few advantages over exceptions.
-
-## Usage
+A contract on an interface  is defined using `Dbc.Def(...)` method in the default constructor of a class decorated with the `System.Diagnostics.Contracts.ContractClassFor` attribute, which in this way is tied to the interface. 
+The proxy class which intercepts the method calls on the interface is created using the `Dbc.Make<TInterface>(...)` static method.
 
 ```csharp
 
@@ -89,5 +92,14 @@ var proxy = Dbc.Make<IMyList>(new MyList());
 
 ```
 
+
+
+
+### Limitations
+
+One  limitation is that a contract cannot be attached to a single method; however, this is considered 
+acceptable, since contracts should provide a common safety for multiple objects which implement the same API defined by their interface.
+
+Another limitation is that contracts on `ref` and `out` parameters are not supported, due to the functional nature of the `System.Linq.Expressions` namespace.
 
 
