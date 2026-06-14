@@ -9,18 +9,21 @@ internal class MethodSelectVisitor : ExpressionVisitor
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        Method = node.Method;
-
+        // Capture only the outermost method call; nested calls inside arguments are ignored.
+        if (Method == null!)
+        {
+            Method = node.Method;
+        }
         return base.VisitMethodCall(node);
     }
 
     protected override Expression VisitMember(MemberExpression node)
     {
-        if (node.Member is PropertyInfo property && property.GetMethod != null)
+        // Handle property access (e.g. x.Count) when no method call was found first.
+        if (Method == null! && node.Member is PropertyInfo property && property.GetMethod != null)
         {
             Method = property.GetMethod;
         }
-
         return base.VisitMember(node);
     }
 }

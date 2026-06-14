@@ -5,7 +5,7 @@ using ContractExpressions;
 
 namespace ContractExpressions.Tests;
 
-public class PostconditionOverloadTests
+public class PostconditionOverloadTests : IClassFixture<ContractFailureUnwindFixture>
 {
 
     [Fact]

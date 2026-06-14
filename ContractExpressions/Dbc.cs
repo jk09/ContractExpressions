@@ -91,29 +91,13 @@ public static class Dbc
         selVisitor.Visit(methodExpr);
 
         var contractRegistry = ContractRegistry.Instance;
-
         var method = selVisitor.Method;
-        if (!contractRegistry.Preconditions.ContainsKey(method))
-        {
-            contractRegistry.Preconditions[method] = new List<Invokable>();
-        }
-        if (!contractRegistry.Postconditions.ContainsKey(method))
-        {
-            contractRegistry.Postconditions[method] = new List<Invokable>();
-        }
-        if (!contractRegistry.OldValueCollectors.ContainsKey(method))
-        {
-            contractRegistry.OldValueCollectors[method] = new Dictionary<PropertyInfo, Delegate>();
-        }
-        if (!contractRegistry.PostconditionsOnThrow.ContainsKey(method))
-        {
-            contractRegistry.PostconditionsOnThrow[method] = new List<Invokable>();
-        }
-        if (!contractRegistry.Invariants.ContainsKey(method))
-        {
-            contractRegistry.Invariants[method] = new List<Invokable>();
-        }
 
+        var preconditions = contractRegistry.Preconditions.GetOrAdd(method, _ => []);
+        var postconditions = contractRegistry.Postconditions.GetOrAdd(method, _ => []);
+        var oldValueCollectors = contractRegistry.OldValueCollectors.GetOrAdd(method, _ => new Dictionary<PropertyInfo, Delegate>());
+        var postconditionsOnThrow = contractRegistry.PostconditionsOnThrow.GetOrAdd(method, _ => []);
+        var invariants = contractRegistry.Invariants.GetOrAdd(method, _ => []);
 
         foreach (var expr in contractDefExprs)
         {
@@ -122,30 +106,27 @@ public static class Dbc
 
             foreach (var precondition in visitor.Preconditions)
             {
-                contractRegistry.Preconditions[method].Add(new Invokable(expr, precondition));
+                preconditions.Add(new Invokable(expr, precondition));
             }
 
             foreach (var postcondition in visitor.Postconditions)
             {
-                contractRegistry.Postconditions[method].Add(new Invokable(expr, postcondition));
+                postconditions.Add(new Invokable(expr, postcondition));
             }
 
-            if (visitor.OldValueCollectors.Count > 0)
+            foreach (var (property, collectorDelegate) in visitor.OldValueCollectors)
             {
-                foreach (var (property, collectorDelegate) in visitor.OldValueCollectors)
-                {
-                    contractRegistry.OldValueCollectors[method].Add(property, collectorDelegate);
-                }
+                oldValueCollectors.TryAdd(property, collectorDelegate);
             }
 
             foreach (var postconditionOnThrow in visitor.PostconditionsOnThrow)
             {
-                contractRegistry.PostconditionsOnThrow[method].Add(new Invokable(expr, postconditionOnThrow));
+                postconditionsOnThrow.Add(new Invokable(expr, postconditionOnThrow));
             }
 
             foreach (var invariant in visitor.Invariants)
             {
-                contractRegistry.Invariants[method].Add(new Invokable(expr, invariant));
+                invariants.Add(new Invokable(expr, invariant));
             }
         }
     }
