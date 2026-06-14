@@ -2,7 +2,7 @@ using System.Reflection;
 
 namespace ContractExpressions4.Internal;
 
-internal sealed class ContractAwareProxy<T> : DispatchProxy
+internal class ContractAwareProxy<T> : DispatchProxy
     where T : class
 {
     private T? target;
