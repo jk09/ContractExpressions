@@ -51,11 +51,13 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
                     PostconditionsOnThrow.Add(ensuresOnThrowDelegate);
                     break;
                 case nameof(Contract.Assert):
-                    var assertCallExpr = new ContractAssertPatcher().Visit(node);
-                    return assertCallExpr!;
+                    GetAssertDelegate(node, out var assertDelegate);
+                    Preconditions.Add(assertDelegate);
+                    break;
                 case nameof(Contract.Assume):
-                    var assumeCallExpr = new ContractAssumePatcher().Visit(node);
-                    return assumeCallExpr!;
+                    GetAssumeDelegate(node, out var assumeDelegate);
+                    Preconditions.Add(assumeDelegate);
+                    break;
 
                 case nameof(Contract.Invariant):
                     var invariantCallExpr = node;
@@ -151,7 +153,11 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
 
         var exceptionTypeArg = contractEnsuresOnThrowExpr.Method.GetGenericArguments()[0];
 
-        var ensuresOnThrowParams = new List<ParameterExpression>(_contractParameters!);
+        var exceptionParam = Expression.Parameter(typeof(Exception), "exception");
+        var ensuresOnThrowParams = new List<ParameterExpression>(_contractParameters!)
+        {
+            exceptionParam
+        };
 
         var contract = Expression.Lambda(
             Expression.Call(
@@ -171,11 +177,39 @@ internal class DbcDefVisitor(Type contractType) : ExpressionVisitor
 
         MethodInfo invariantPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Invariant), new Type[] { typeof(bool), typeof(string) })!;
 
-        var invariantParams = new List<ParameterExpression>(_contractParameters!);
+        var contractContextParam = Expression.Parameter(typeof(ContractContext), "contractContext");
+        var invariantParams = new List<ParameterExpression>(_contractParameters!)
+        {
+            contractContextParam
+        };
 
         var contract = Expression.Lambda(Expression.Call(null, invariantPatch, condition, message), $"Invariant_1", invariantParams);
         contractDlg = contract.Compile();
     }
+
+    private void GetAssertDelegate(MethodCallExpression contractAssertExpr, out Delegate contractDlg)
+    {
+        var condition = contractAssertExpr.Arguments[0];
+        var message = contractAssertExpr.Arguments.Count > 1 ? contractAssertExpr.Arguments[1] : Expression.Constant(null, typeof(string));
+
+        MethodInfo assertPatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Assert), new Type[] { typeof(bool), typeof(string) })!;
+
+        var assertParams = new List<ParameterExpression>(_contractParameters!);
+
+        var contract = Expression.Lambda(Expression.Call(null, assertPatch, condition, message), $"Assert_1", assertParams);
+        contractDlg = contract.Compile();
+    }
+
+    private void GetAssumeDelegate(MethodCallExpression contractAssumeExpr, out Delegate contractDlg)
+    {
+        var condition = contractAssumeExpr.Arguments[0];
+        var message = contractAssumeExpr.Arguments.Count > 1 ? contractAssumeExpr.Arguments[1] : Expression.Constant(null, typeof(string));
+
+        MethodInfo assumePatch = typeof(ContractPatch).GetMethod(nameof(ContractPatch.Assume), new Type[] { typeof(bool), typeof(string) })!;
+
+        var assumeParams = new List<ParameterExpression>(_contractParameters!);
+
+        var contract = Expression.Lambda(Expression.Call(null, assumePatch, condition, message), $"Assume_1", assumeParams);
+        contractDlg = contract.Compile();
+    }
 }
-
-

@@ -13,4 +13,14 @@ internal class MethodSelectVisitor : ExpressionVisitor
 
         return base.VisitMethodCall(node);
     }
+
+    protected override Expression VisitMember(MemberExpression node)
+    {
+        if (node.Member is PropertyInfo property && property.GetMethod != null)
+        {
+            Method = property.GetMethod;
+        }
+
+        return base.VisitMember(node);
+    }
 }
