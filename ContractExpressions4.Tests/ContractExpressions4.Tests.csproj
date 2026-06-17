@@ -11,20 +11,24 @@
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
 
-    <PackageReference Include="xunit.v3" Version="2.0.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.1">
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
 
+    <PackageReference Include="FsCheck.Xunit.v3" Version="3.3.3" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="FsCheck" />
+    <Using Include="FsCheck.Xunit" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ContractExpressions4\ContractExpressions4.csproj" />
+    <ProjectReference Include="..\ContractExpressions4.Testing\ContractExpressions4.Testing.csproj" />
   </ItemGroup>
 
 </Project>

@@ -2,6 +2,7 @@
 
 using System.Diagnostics.Contracts;
 using ContractExpressions4;
+using ContractExpressions4.Testing;
 
 namespace ContractExpressions4.Tests;
 
@@ -39,6 +40,18 @@ public class DbcApiFixtureTests
         Assert.Equal(ContractKind.Postcondition, ex.Kind);
         Assert.Equal("Add", ex.Method);
     }
+
+    // ── Property-based tests (FsCheck) ────────────────────────────────────────
+    // DbcPropertyTest.Check creates a fresh proxy per test case, which:
+    //   1. Validates invariants at creation (proxyFactory() call).
+    //   2. Discards test cases where the precondition is not satisfied (inconclusive).
+    //   3. Validates postconditions and invariants after the method call.
+
+    [Property]
+    public Property Add_RandomInputs_SatisfiesContracts(int value) =>
+        DbcPropertyTest.Check(
+            () => Dbc.Make<ICounter>(new Counter()),
+            (ICounter proxy) => proxy.Add(value));
 
     [Fact]
     public void Make_WhenInvariantFailsAtCreation_ThrowsInvariantViolation()

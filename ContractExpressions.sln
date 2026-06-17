@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContractExpressions4", "Con
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContractExpressions4.Tests", "ContractExpressions4.Tests\ContractExpressions4.Tests.csproj", "{05498F4B-EFD4-4ABD-8FF4-DE439D56107B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContractExpressions4.Testing", "ContractExpressions4.Testing\ContractExpressions4.Testing.csproj", "{3327C240-AD88-4296-BE04-0982DC590056}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{05498F4B-EFD4-4ABD-8FF4-DE439D56107B}.Release|x64.Build.0 = Release|Any CPU
 		{05498F4B-EFD4-4ABD-8FF4-DE439D56107B}.Release|x86.ActiveCfg = Release|Any CPU
 		{05498F4B-EFD4-4ABD-8FF4-DE439D56107B}.Release|x86.Build.0 = Release|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Debug|x64.Build.0 = Debug|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Debug|x86.Build.0 = Debug|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Release|x64.ActiveCfg = Release|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Release|x64.Build.0 = Release|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Release|x86.ActiveCfg = Release|Any CPU
+		{3327C240-AD88-4296-BE04-0982DC590056}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
