@@ -37,7 +37,7 @@ public class MaxDemoTests
         Assert.Equal("Max", ex.Method);
     }
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property Max_NonEmptyArrays_SatisfyContracts(NonEmptyArray<int> elements) =>
         DbcPropertyTest.Check(
             () => Dbc.Make<IMaxUtils>(new MaxUtils()),

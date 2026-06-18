@@ -29,7 +29,7 @@ public class NonNullStackWithUpdateDemoTests
         Assert.Equal("UpdateAt", ex.Method);
     }
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property UpdateAt_RandomInputs_SatisfyContracts(NonEmptyString value) =>
         DbcPropertyTest.Check(
             () =>

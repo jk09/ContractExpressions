@@ -47,7 +47,7 @@ public class DbcApiFixtureTests
     //   2. Discards test cases where the precondition is not satisfied (inconclusive).
     //   3. Validates postconditions and invariants after the method call.
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property Add_RandomInputs_SatisfiesContracts(int value) =>
         DbcPropertyTest.Check(
             () => Dbc.Make<ICounter>(new Counter()),

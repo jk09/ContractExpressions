@@ -46,13 +46,13 @@ public class BankAccountDemoTests
         Assert.Equal("<creation>", ex.Method);
     }
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property Deposit_RandomInputs_SatisfyContracts(float deposit) =>
         DbcPropertyTest.Check(
             () => Dbc.Make<IAccount>(new Account(100, supportsOverdraft: true, overdraftLimit: 20)),
             (IAccount proxy) => proxy.Deposit(deposit));
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property Withdraw_RandomInputs_SatisfyContracts(float amount) =>
         DbcPropertyTest.Check(
             () => Dbc.Make<IAccount>(new Account(100, supportsOverdraft: true, overdraftLimit: 20)),

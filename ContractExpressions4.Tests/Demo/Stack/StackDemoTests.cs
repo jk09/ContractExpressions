@@ -28,13 +28,13 @@ public class StackDemoTests
         Assert.Equal("Pop", ex.Method);
     }
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property Push_RandomInputs_SatisfyContracts(string value) =>
         DbcPropertyTest.Check(
             () => Dbc.Make<INonNullStack>(new NonNullStack(0)),
             (INonNullStack proxy) => proxy.Push(value));
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property Pop_AfterSeedPush_SatisfiesContracts(NonEmptyString value) =>
         DbcPropertyTest.Check(
             () =>

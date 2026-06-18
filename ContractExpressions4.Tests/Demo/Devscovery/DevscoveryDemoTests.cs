@@ -37,13 +37,13 @@ public class DevscoveryDemoTests
         Assert.Equal("Abs", ex.Method);
     }
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property AbsNetStyle_RandomInputs_SatisfyContracts(int value) =>
         DbcPropertyTest.Check(
             () => Dbc.Make<IMyMath>(new MyMathService()),
             (IMyMath proxy) => proxy.AbsNetStyle(value));
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property ArrayAbs_RandomInputs_SatisfyContracts(int[] values) =>
         DbcPropertyTest.Check(
             () => Dbc.Make<IArrayExtensionsDemo>(new ArrayExtensionsDemo()),

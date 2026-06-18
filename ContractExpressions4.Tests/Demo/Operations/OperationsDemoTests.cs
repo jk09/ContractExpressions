@@ -87,19 +87,19 @@ public class OperationsDemoTests
         Assert.Equal("Perform", ex.Method);
     }
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property Perform_RandomInputs_SatisfyContracts(int left, int right) =>
         DbcPropertyTest.Check(
             () => Dbc.Make<IOperationDemo>(new IntAdderOperation()),
             (IOperationDemo proxy) => proxy.Perform(left, right));
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property ArgumentTypes_RandomInvocations_SatisfyContracts() =>
         DbcPropertyTest.Check(
             () => Dbc.Make<IOperationDemo>(new IntAdderOperation()),
             (IOperationDemo proxy) => proxy.ArgumentTypes);
 
-    [Property]
+    [Property(QuietOnSuccess = false, Verbose = true)]
     public Property ResultType_RandomInvocations_SatisfyContracts() =>
         DbcPropertyTest.Check(
             () => Dbc.Make<IOperationDemo>(new IntAdderOperation()),
