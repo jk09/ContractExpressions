@@ -11,8 +11,7 @@ public static class Dbc
     public static void Def<T, T1>(Expression<Action<T, T1>> method, params Expression<Action<T, T1>>[] contracts) => Register(method, contracts);
     public static void Def<T, T1, T2>(Expression<Action<T, T1, T2>> method, params Expression<Action<T, T1, T2>>[] contracts) => Register(method, contracts);
     public static void Def<T, T1, T2, T3>(Expression<Action<T, T1, T2, T3>> method, params Expression<Action<T, T1, T2, T3>>[] contracts) => Register(method, contracts);
-    public static void Def<T, T1, T2, T3, T4>(Expression<Action<T, T1, T2, T3, T4>> method, params Expression<Action<T, T1, T2, T3, T4>>[] contracts) => Register(method, contracts);
-    public static void Def<T, T1, T2, T3, T4, T5>(Expression<Action<T, T1, T2, T3, T4, T5>> method, params Expression<Action<T, T1, T2, T3, T4, T5>>[] contracts) => Register(method, contracts);
+    public static void Def<T, T1, T2, T3, T4>(Expression<Action<T, T1, T2, T3, T4>> method, params Expression<Action<T, T1, T2, T3, T4>>[] contracts) => Register(method, contracts); public static void Def<T, T1, T2, T3, T4, T5>(Expression<Action<T, T1, T2, T3, T4, T5>> method, params Expression<Action<T, T1, T2, T3, T4, T5>>[] contracts) => Register(method, contracts);
     public static void Def<T, T1, T2, T3, T4, T5, T6>(Expression<Action<T, T1, T2, T3, T4, T5, T6>> method, params Expression<Action<T, T1, T2, T3, T4, T5, T6>>[] contracts) => Register(method, contracts);
     public static void Def<T, T1, T2, T3, T4, T5, T6, T7>(Expression<Action<T, T1, T2, T3, T4, T5, T6, T7>> method, params Expression<Action<T, T1, T2, T3, T4, T5, T6, T7>>[] contracts) => Register(method, contracts);
 

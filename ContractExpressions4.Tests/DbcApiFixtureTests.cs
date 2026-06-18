@@ -29,8 +29,7 @@ public class DbcApiFixtureTests
         Assert.Equal(ContractKind.Precondition, ex.Kind);
         Assert.Equal("Add", ex.Method);
     }
-
-    [Fact]
+`
     public void Add_WhenPostconditionFails_ThrowsPostconditionViolation()
     {
         IBrokenCounter proxy = Dbc.Make<IBrokenCounter>(new BrokenCounter());
