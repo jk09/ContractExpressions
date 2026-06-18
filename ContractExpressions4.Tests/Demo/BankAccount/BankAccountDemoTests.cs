@@ -6,6 +6,16 @@ namespace ContractExpressions4.Tests.Demo.BankAccount;
 public class BankAccountDemoTests
 {
     [Fact]
+    public void OverdraftLimit_GetterContract_IsEnforced()
+    {
+        IAccount proxy = Dbc.Make<IAccount>(new Account(100, supportsOverdraft: true, overdraftLimit: 20));
+
+        float limit = proxy.OverdraftLimit;
+
+        Assert.Equal(20, limit);
+    }
+
+    [Fact]
     public void Withdraw_WithValidAmount_SatisfiesPostcondition()
     {
         IAccount proxy = Dbc.Make<IAccount>(new Account(100, supportsOverdraft: true, overdraftLimit: 20));

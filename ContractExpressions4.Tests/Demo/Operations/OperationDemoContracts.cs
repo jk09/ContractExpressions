@@ -10,6 +10,13 @@ internal sealed class OperationDemoContracts
 {
     public OperationDemoContracts()
     {
+        Dbc.Def(static (IOperationDemo x) => x.ArgumentTypes,
+            static (IOperationDemo x) => Contract.Ensures(Contract.Result<Type[]>() != null),
+            static (IOperationDemo x) => Contract.Ensures(Contract.Result<Type[]>().Length == 2));
+
+        Dbc.Def(static (IOperationDemo x) => x.ResultType,
+            static (IOperationDemo x) => Contract.Ensures(Contract.Result<Type>() != null));
+
         Dbc.Def(static (IOperationDemo x, object[] arguments) => x.Perform(arguments),
             static (IOperationDemo x, object[] arguments) => Contract.Requires(arguments != null),
             static (IOperationDemo x, object[] arguments) => Contract.Requires(arguments.Length == x.ArgumentTypes.Length),

@@ -10,6 +10,9 @@ internal sealed class AccountContracts
 {
     public AccountContracts()
     {
+        Dbc.Def(static (IAccount x) => x.OverdraftLimit,
+            static (IAccount x) => Contract.Ensures(Contract.Result<float>() >= 0));
+
         Dbc.Def(static (IAccount x, float deposit) => x.Deposit(deposit),
             static (IAccount x, float deposit) => Contract.Requires(deposit > 0.0f));
 

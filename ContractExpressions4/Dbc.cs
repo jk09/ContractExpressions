@@ -106,11 +106,28 @@ public static class Dbc
 
     private static MethodInfo ExtractMethod(LambdaExpression selector)
     {
-        if (selector.Body is MethodCallExpression call && call.Method.DeclaringType != typeof(Contract))
+        Expression body = selector.Body;
+        while (body is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } conversion)
+        {
+            body = conversion.Operand;
+        }
+
+        if (body is MethodCallExpression call && call.Method.DeclaringType != typeof(Contract))
         {
             return call.Method;
         }
 
-        throw new InvalidOperationException($"'{selector}' is not a valid method selector.");
+        if (body is MemberExpression { Member: PropertyInfo property })
+        {
+            MethodInfo? getter = property.GetMethod;
+            if (getter is null)
+            {
+                throw new InvalidOperationException($"Property '{property.Name}' does not have a getter.");
+            }
+
+            return getter;
+        }
+
+        throw new InvalidOperationException($"'{selector}' is not a valid method or property selector.");
     }
 }
