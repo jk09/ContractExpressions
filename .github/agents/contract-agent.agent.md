@@ -18,7 +18,7 @@ All contracts use the `ContractExpressions4` library (project reference at `Cont
 - `ContractViolationException` — thrown when a contract is violated (has `Kind` and `Method` properties)
 - `ContractKind` enum — `Precondition`, `Postcondition`, `Invariant`
 
-Property-based tests use the `ContractExpressions4.Testing` library (project reference at `ContractExpressions4.Testing/ContractExpressions4.Testing.csproj`):
+Property-based tests use the `ContractExpressions4.Check` library (project reference at `ContractExpressions4.Check/ContractExpressions4.Check.csproj`):
 
 - `DbcPropertyTest.Check(proxyFactory, invoke)` — runs a single randomly-generated test case:
   - Calls `proxyFactory()` which validates invariants at creation (failure = test fails).
@@ -81,7 +81,7 @@ The `[Property]` attribute generates random values for method parameters. Pass t
 
 using System.Diagnostics.Contracts;
 using ContractExpressions4;
-using ContractExpressions4.Testing;
+using ContractExpressions4.Check;
 
 public class MyThingTests
 {
@@ -140,7 +140,7 @@ Generate all three files in the current workspace. Choose a meaningful name deri
 - `{Name}.Contracts.cs` — `[ContractClass]`, `[ContractClassFor]`, `Dbc.Def` definitions (starts with `#define CONTRACTS_FULL`)
 - `{Name}.Tests.cs` — xUnit tests (starts with `#define CONTRACTS_FULL`)
 
-The test project must reference both `ContractExpressions4` and `ContractExpressions4.Testing`, and include the `FsCheck.Xunit.v3` NuGet package.
+The test project must reference both `ContractExpressions4` and `ContractExpressions4.Check`, and include the `FsCheck.Xunit.v3` NuGet package.
 
 If a dedicated test project doesn't exist, place the test file alongside the other files and note that it should be added to an xUnit project referencing both libraries.
 
@@ -164,4 +164,3 @@ If a dedicated test project doesn't exist, place the test file alongside the oth
 - Tests MUST cover both the "contract satisfied" path and the "contract violated" path for every defined contract.
 - Use `#define CONTRACTS_FULL` at the top of every file that uses `System.Diagnostics.Contracts`.
 - In `[Property]` tests, pass the randomly-generated method parameters directly to `DbcPropertyTest.Check` — do NOT call the proxy method directly, as the helper manages precondition discarding and invariant validation.
-

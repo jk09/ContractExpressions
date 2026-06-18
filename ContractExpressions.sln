@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContractExpressions4", "Con
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContractExpressions4.Tests", "ContractExpressions4.Tests\ContractExpressions4.Tests.csproj", "{05498F4B-EFD4-4ABD-8FF4-DE439D56107B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContractExpressions4.Testing", "ContractExpressions4.Testing\ContractExpressions4.Testing.csproj", "{3327C240-AD88-4296-BE04-0982DC590056}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContractExpressions4.Check", "ContractExpressions4.Check\ContractExpressions4.Check.csproj", "{3327C240-AD88-4296-BE04-0982DC590056}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

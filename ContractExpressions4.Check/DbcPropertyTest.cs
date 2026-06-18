@@ -1,7 +1,7 @@
 using FsCheck;
 using FsCheck.Fluent;
 
-namespace ContractExpressions4.Testing;
+namespace ContractExpressions4.Check;
 
 /// <summary>
 /// FsCheck-based property test helpers for Design-by-Contract proxies.
@@ -52,4 +52,3 @@ public static class DbcPropertyTest
         return FsCheck.Fluent.Prop.Implies(preconditionMet, true);
     }
 }
-

@@ -2,7 +2,7 @@
 
 using System.Diagnostics.Contracts;
 using ContractExpressions4;
-using ContractExpressions4.Testing;
+using ContractExpressions4.Check;
 
 namespace ContractExpressions4.Tests;
 
