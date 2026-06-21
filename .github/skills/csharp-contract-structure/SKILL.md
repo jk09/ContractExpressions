@@ -32,7 +32,7 @@ If project constraints require fewer files, still preserve the interface + imple
 - If you skip contracts for a member, explain why they were not inferable.
 
 ## Dbc.Def Coverage
-Match the selector and clause signatures to the member arity:
+Match the selector and clause signatures to t  he member arity:
 - `void` members: `Action<T>` through `Action<T, T1, ..., T7>`.
 - returning members: `Func<T, TResult>` through `Func<T, T1, ..., T7, TResult>`.
 
