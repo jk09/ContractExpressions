@@ -1,0 +1,25 @@
+{
+    "name": "ContractExpressions Dev",
+    "image": "mcr.microsoft.com/devcontainers/dotnet:1-9.0-bookworm",
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
+    "workspaceMount": "source=contractexpressions-src,target=/workspaces,type=volume",
+    "workspaceFolder": "/workspaces",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-dotnettools.csdevkit",
+                "ms-dotnettools.csharp",
+                "ms-dotnettools.vscode-dotnet-runtime",
+                "vsls-contrib.gitdoc"
+            ],
+            "settings": {
+                "dotnet.defaultSolution": "ContractExpressions.sln",
+                "github.copilot.chat.agent.workspaceMountBehavior": "container"
+            }
+        }
+    },
+    "postCreateCommand": "sudo chown -R vscode:vscode /workspaces && if [ ! -d /workspaces/.git ]; then git clone https://github.com/jk09/ContractExpressions.git /workspaces; fi"
+}
