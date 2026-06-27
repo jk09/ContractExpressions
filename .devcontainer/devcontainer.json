@@ -5,8 +5,8 @@
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers/features/github-cli:1": {}
     },
-    "workspaceMount": "source=contractexpressions-src,target=/workspaces,type=volume",
-    "workspaceFolder": "/workspaces",
+    //"workspaceMount": "source=contractexpressions-src,target=/workspaces,type=volume",
+    //"workspaceFolder": "/workspaces",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -21,5 +21,5 @@
             }
         }
     },
-    "postCreateCommand": "sudo chown -R vscode:vscode /workspaces && if [ ! -d /workspaces/.git ]; then git clone https://github.com/jk09/ContractExpressions.git /workspaces; fi"
+    //"postCreateCommand": "sudo chown -R vscode:vscode /workspaces && if [ ! -d /workspaces/.git ]; then git clone https://github.com/jk09/ContractExpressions.git /workspaces; fi"
 }
