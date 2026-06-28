@@ -2,7 +2,7 @@
 
 ## Description
 
-The `ContractExpressions` project provides the Design by Contract functionality in .NET developers. It is meant as a lightweight replacement of the legacy .NET Framework [Code contracts](https://learn.microsoft.com/en-us/dotnet/framework/debug-trace-profile/code-contracts).
+The `ContractExpressions` project provides the Design by Contract (DbC) functionality in .NET developers. It is a lightweight replacement of the legacy project [Code contracts](https://learn.microsoft.com/en-us/dotnet/framework/debug-trace-profile/code-contracts).
 
 The [source code](../ContractExpressions/CodeContracts/CodeContracts.sln) of the legacy framework is based on the compile-time rewriting of the program using the `System.Diagnostics.Contracts` API.
 

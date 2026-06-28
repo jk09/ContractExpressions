@@ -13,7 +13,8 @@
                 "ms-dotnettools.csdevkit",
                 "ms-dotnettools.csharp",
                 "ms-dotnettools.vscode-dotnet-runtime",
-                "vsls-contrib.gitdoc"
+                "vsls-contrib.gitdoc",
+                "ms-vscode.vscode-chat-customizations-evaluations"
             ],
             "settings": {
                 "dotnet.defaultSolution": "ContractExpressions.sln",
