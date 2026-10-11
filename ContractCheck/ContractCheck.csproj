@@ -25,4 +25,12 @@
     <InternalsVisibleTo Include="ContractCheck.Tests" />
   </ItemGroup>
 
+  <!-- The analyzer and its code fix ship inside this package (analyzers/dotnet/cs); the references only order the builds. -->
+  <ItemGroup>
+    <ProjectReference Include="..\ContractCheck.Analyzers\ContractCheck.Analyzers.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\ContractCheck.CodeFixes\ContractCheck.CodeFixes.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <None Include="..\ContractCheck.Analyzers\bin\$(Configuration)\netstandard2.0\ContractCheck.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="..\ContractCheck.CodeFixes\bin\$(Configuration)\netstandard2.0\ContractCheck.CodeFixes.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
 </Project>

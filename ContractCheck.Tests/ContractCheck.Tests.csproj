@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="FsCheck.Xunit.v3" Version="3.3.4" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.8.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
@@ -29,6 +30,9 @@
     <ProjectReference Include="..\ContractCheck.FsCheck\ContractCheck.FsCheck.csproj" />
     <ProjectReference Include="..\ContractCheck.Samples\ContractCheck.Samples.csproj" />
     <ProjectReference Include="..\ContractCheck.DependencyInjection\ContractCheck.DependencyInjection.csproj" />
+    <!-- Referenced as libraries, not as analyzers: these tests define invalid contracts on purpose (Analyzers/ runs the analyzers on snippets). -->
+    <ProjectReference Include="..\ContractCheck.Analyzers\ContractCheck.Analyzers.csproj" />
+    <ProjectReference Include="..\ContractCheck.CodeFixes\ContractCheck.CodeFixes.csproj" />
   </ItemGroup>
 
 </Project>

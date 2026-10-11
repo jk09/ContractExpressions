@@ -30,6 +30,7 @@
     <ProjectReference Include="..\ContractCheck.Samples\ContractCheck.Samples.csproj" />
     <ProjectReference Include="..\ContractCheck\ContractCheck.csproj" />
     <ProjectReference Include="..\ContractCheck.FsCheck\ContractCheck.FsCheck.csproj" />
+    <ProjectReference Include="..\ContractCheck.Analyzers\ContractCheck.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>
