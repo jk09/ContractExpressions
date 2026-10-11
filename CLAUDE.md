@@ -7,9 +7,7 @@
 
 ## Features
 
-- One folder per feature under `ContractExpressions4/Features/<Feature>/` with its code, a short `README.md` and, if needed, a `CLAUDE.md` for feature-specific rules. Index: [docs/features.md](./docs/features.md).
 - Docs are written by the [`document-feature`](.claude/skills/document-feature/) skill; the Stop hook blocks finishing while feature code or the active spec changed without its docs.
-- Removing a feature means deleting its folder, flags, DI registrations, tests and `docs/features.md` row in the same PR.
 - Decisions go in `docs/adr/`, append-only: a changed decision gets a new ADR that supersedes the old one.
 - Every feature flag has an owner and a removal date in its feature README. The [`audit-features`](.claude/skills/audit-features/) skill lists overdue flags and sprawl.
 
