@@ -103,26 +103,37 @@ internal static class ClauseCompiler
             interfaceType,
             clause,
             "Contract.EndContractBlock marks legacy if-then-throw preconditions inside method bodies; use Contract.Requires<TException> instead"),
-        nameof(Contract.ValueAtReturn) => throw ValueAtReturnError(interfaceType, clause),
+        nameof(Contract.ValueAtReturn) => throw DefinitionErrors.Create(
+            interfaceType,
+            clause,
+            "Contract.ValueAtReturn is not a clause; use it inside Ensures with an out/ref placeholder, e.g. Contract.Ensures(Contract.ValueAtReturn(out Dbc.Out<int>.Value) >= 0)"),
         _ => throw DefinitionErrors.Create(
             interfaceType,
             clause,
             $"Contract.{call.Method.Name} is not a clause; use it inside a condition, e.g. Contract.Ensures(Contract.{call.Method.Name}(...))"),
     };
 
-    private static InvalidOperationException ValueAtReturnError(Type interfaceType, Expression expression) =>
-        DefinitionErrors.Create(
-            interfaceType,
-            expression,
-            "Contract.ValueAtReturn needs out parameters, which Dbc.Def selectors cannot express; contracts on ref/out parameters are not supported");
-
     private static MethodInfo ContextMethod(string name) =>
         typeof(InvocationContext).GetMethod(name) ?? throw new MissingMethodException(nameof(InvocationContext), name);
 
     /// <summary>Rewrites one clause; holds the old-value captures and the flags the compiled clause needs.</summary>
-    private sealed class ClauseRewriter(LambdaExpression clause, ClauseKind kind, Type interfaceType, MemberSignature? member) : ExpressionVisitor
+    private sealed class ClauseRewriter : ExpressionVisitor
     {
         private readonly Dictionary<ParameterExpression, (Expression From, Expression To)> quantifierRanges = [];
+        private readonly LambdaExpression clause;
+        private readonly ClauseKind kind;
+        private readonly Type interfaceType;
+        private readonly MemberSignature? member;
+        private readonly ParameterMap map;
+
+        public ClauseRewriter(LambdaExpression clause, ClauseKind kind, Type interfaceType, MemberSignature? member)
+        {
+            this.clause = clause;
+            this.kind = kind;
+            this.interfaceType = interfaceType;
+            this.member = member;
+            map = new ParameterMap(clause.Parameters, member, Context);
+        }
 
         public ParameterExpression Context { get; } = Expression.Parameter(typeof(InvocationContext), "context");
 
@@ -136,11 +147,15 @@ internal static class ClauseCompiler
 
         public Expression Rewrite(Expression expression) => Visit(expression)!;
 
-        protected override Expression VisitParameter(ParameterExpression node) =>
-            ClauseParameters.Map(clause.Parameters, node, Context) ?? node;
+        protected override Expression VisitParameter(ParameterExpression node) => map.Parameter(node) ?? node;
 
         protected override Expression VisitMember(MemberExpression node)
         {
+            if (ByRefPlaceholders.Is(node.Member, out bool isOut))
+            {
+                return ReadPlaceholder(node, (FieldInfo)node.Member, isOut, viaValueAtReturn: false);
+            }
+
             MarkRuntimeIgnored(node.Member);
             return base.VisitMember(node);
         }
@@ -167,7 +182,9 @@ internal static class ClauseCompiler
                     case nameof(Contract.OldValue):
                         return RewriteOldValue(node);
                     case nameof(Contract.ValueAtReturn):
-                        throw ValueAtReturnError(interfaceType, clause);
+                        return StripConversions(node.Arguments[0]) is MemberExpression { Member: FieldInfo field } && ByRefPlaceholders.Is(field, out bool isOut)
+                            ? ReadPlaceholder(node, field, isOut, viaValueAtReturn: true)
+                            : throw Error(node, "Contract.ValueAtReturn needs an out/ref placeholder, e.g. Contract.ValueAtReturn(out Dbc.Out<int>.Value)");
                     case nameof(Contract.ForAll) or nameof(Contract.Exists)
                         when node.Arguments.Count == 3 && node.Arguments[2] is LambdaExpression { Parameters.Count: 1 } predicate:
                         quantifierRanges[predicate.Parameters[0]] = (node.Arguments[0], node.Arguments[1]);
@@ -176,6 +193,59 @@ internal static class ClauseCompiler
             }
 
             return base.VisitMethodCall(node);
+        }
+
+        /// <summary>
+        /// A <see cref="Dbc.Out{T}"/>/<see cref="Dbc.Ref{T}"/> placeholder read directly (not inside <c>OldValue</c>): the argument
+        /// slot it stands for – the value passed in for entry checks, the value at return for postconditions.
+        /// </summary>
+        private Expression ReadPlaceholder(Expression at, FieldInfo field, bool isOut, bool viaValueAtReturn)
+        {
+            ByRefSlot slot = SlotOf(at, field, isOut);
+            if (viaValueAtReturn && kind != ClauseKind.Ensures)
+            {
+                throw Error(at, "Contract.ValueAtReturn can only be used in Ensures clauses");
+            }
+
+            if (isOut && kind != ClauseKind.Ensures)
+            {
+                throw Error(at, kind == ClauseKind.EnsuresOnThrow
+                    ? $"out parameter '{slot.Name}' has no defined value when the member throws"
+                    : $"out parameter '{slot.Name}' has no value before the call; read it in an Ensures clause");
+            }
+
+            if (!isOut && kind == ClauseKind.EnsuresOnThrow)
+            {
+                throw Error(at, $"the value of ref parameter '{slot.Name}' when the member throws is unknown; use Contract.OldValue({ByRefPlaceholders.Format(field, isOut)}) for the value passed in");
+            }
+
+            return map.Placeholder(field, slot);
+        }
+
+        private ByRefSlot SlotOf(Expression at, FieldInfo field, bool isOut)
+        {
+            string text = ByRefPlaceholders.Format(field, isOut);
+            if (member is null)
+            {
+                throw Error(at, $"{text} stands for an out/ref parameter of a member, and interface invariants have none");
+            }
+
+            return member.Placeholders.TryGetValue(field, out ByRefSlot? slot)
+                ? slot
+                : throw Error(at, $"the selector doesn't pass {text} for a parameter of {member.DisplayName}");
+        }
+
+        /// <summary>Placeholders inside an expression evaluated on entry (old values, quantifier bounds) must be ref parameters.</summary>
+        private void CheckEntryPlaceholders(Expression expression)
+        {
+            foreach ((MemberExpression access, FieldInfo field, bool isOut) in PlaceholderFinder.Find(expression))
+            {
+                ByRefSlot slot = SlotOf(access, field, isOut);
+                if (isOut)
+                {
+                    throw Error(access, $"out parameter '{slot.Name}' has no value on entry, so Contract.OldValue can't capture it");
+                }
+            }
         }
 
         private Expression RewriteResult(MethodCallExpression node)
@@ -230,11 +300,12 @@ internal static class ClauseCompiler
                 throw Error(node, "Contract.OldValue cannot contain Contract.Result or another Contract.OldValue");
             }
 
+            CheckEntryPlaceholders(value);
             Type valueType = node.Method.GetGenericArguments()[0];
             IReadOnlyCollection<ParameterExpression> boundVariables = FreeVariableFinder.Find(value, clause.Parameters);
             if (boundVariables.Count == 0)
             {
-                Expression captured = Expression.Convert(ClauseParameters.Rewrite(clause.Parameters, value, Context), typeof(object));
+                Expression captured = Expression.Convert(map.Rewrite(value), typeof(object));
                 Captures.Add(Expression.Lambda<Func<InvocationContext, object?>>(captured, Context).Compile());
                 return Expression.Call(Context, GetOldValueMethod.MakeGenericMethod(valueType), Expression.Constant(Captures.Count - 1));
             }
@@ -247,10 +318,12 @@ internal static class ClauseCompiler
                 && !NestedOldValueOrResultFinder.Contains(range.From)
                 && !NestedOldValueOrResultFinder.Contains(range.To))
             {
+                CheckEntryPlaceholders(range.From);
+                CheckEntryPlaceholders(range.To);
                 Func<InvocationContext, int> from = CompileAtEntry<int>(range.From);
                 Func<InvocationContext, int> to = CompileAtEntry<int>(range.To);
                 Func<InvocationContext, int, object?> element = Expression.Lambda<Func<InvocationContext, int, object?>>(
-                    Expression.Convert(ClauseParameters.Rewrite(clause.Parameters, value, Context), typeof(object)),
+                    Expression.Convert(map.Rewrite(value), typeof(object)),
                     Context,
                     index).Compile();
 
@@ -276,7 +349,7 @@ internal static class ClauseCompiler
         }
 
         private Func<InvocationContext, T> CompileAtEntry<T>(Expression expression) =>
-            Expression.Lambda<Func<InvocationContext, T>>(ClauseParameters.Rewrite(clause.Parameters, expression, Context), Context).Compile();
+            Expression.Lambda<Func<InvocationContext, T>>(map.Rewrite(expression), Context).Compile();
 
         private void MarkRuntimeIgnored(MemberInfo memberInfo)
         {
@@ -301,10 +374,15 @@ internal static class ClauseCompiler
         }
     }
 
-    /// <summary>Maps clause lambda parameters to <see cref="InvocationContext"/> accessors.</summary>
-    private static class ClauseParameters
+    /// <summary>
+    /// Maps clause lambda parameters and <see cref="Dbc.Out{T}"/>/<see cref="Dbc.Ref{T}"/> placeholders to
+    /// <see cref="InvocationContext"/> accessors of the member's argument slots.
+    /// </summary>
+    private sealed class ParameterMap(IReadOnlyList<ParameterExpression> parameters, MemberSignature? member, ParameterExpression context)
     {
-        public static Expression? Map(IReadOnlyList<ParameterExpression> parameters, ParameterExpression node, ParameterExpression context)
+        public MemberSignature? Member => member;
+
+        public Expression? Parameter(ParameterExpression node)
         {
             for (int i = 0; i < parameters.Count; i++)
             {
@@ -312,20 +390,51 @@ internal static class ClauseCompiler
                 {
                     return i == 0
                         ? Expression.Call(context, GetTargetMethod.MakeGenericMethod(node.Type))
-                        : Expression.Call(context, GetArgumentMethod.MakeGenericMethod(node.Type), Expression.Constant(i - 1));
+                        : Expression.Call(context, GetArgumentMethod.MakeGenericMethod(node.Type), Expression.Constant(member!.ArgumentIndexes[i - 1]));
                 }
             }
 
             return null;
         }
 
-        /// <summary>Rewrites only the clause parameters of an expression that contains no <c>Result</c>/<c>OldValue</c>.</summary>
-        public static Expression Rewrite(IReadOnlyList<ParameterExpression> parameters, Expression expression, ParameterExpression context) =>
-            new ParameterOnlyRewriter(parameters, context).Visit(expression)!;
+        public Expression Placeholder(FieldInfo field, ByRefSlot slot) =>
+            Expression.Call(context, GetArgumentMethod.MakeGenericMethod(field.FieldType), Expression.Constant(slot.ArgumentIndex));
 
-        private sealed class ParameterOnlyRewriter(IReadOnlyList<ParameterExpression> parameters, ParameterExpression context) : ExpressionVisitor
+        /// <summary>Rewrites the parameters and (already validated) placeholders of an expression that contains no <c>Result</c>/<c>OldValue</c>.</summary>
+        public Expression Rewrite(Expression expression) => new Rewriter(this).Visit(expression)!;
+
+        private sealed class Rewriter(ParameterMap map) : ExpressionVisitor
         {
-            protected override Expression VisitParameter(ParameterExpression node) => Map(parameters, node, context) ?? node;
+            protected override Expression VisitParameter(ParameterExpression node) => map.Parameter(node) ?? node;
+
+            protected override Expression VisitMember(MemberExpression node) =>
+                ByRefPlaceholders.Is(node.Member, out _) && map.Member?.Placeholders.TryGetValue((FieldInfo)node.Member, out ByRefSlot? slot) == true
+                    ? map.Placeholder((FieldInfo)node.Member, slot!)
+                    : base.VisitMember(node);
+        }
+    }
+
+    /// <summary>Finds the <see cref="Dbc.Out{T}"/>/<see cref="Dbc.Ref{T}"/> placeholders an expression reads.</summary>
+    private sealed class PlaceholderFinder : ExpressionVisitor
+    {
+        private readonly List<(MemberExpression Access, FieldInfo Field, bool IsOut)> found = [];
+
+        public static IReadOnlyList<(MemberExpression Access, FieldInfo Field, bool IsOut)> Find(Expression expression)
+        {
+            var finder = new PlaceholderFinder();
+            finder.Visit(expression);
+            return finder.found;
+        }
+
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            if (ByRefPlaceholders.Is(node.Member, out bool isOut))
+            {
+                found.Add((node, (FieldInfo)node.Member, isOut));
+                return node;
+            }
+
+            return base.VisitMember(node);
         }
     }
 

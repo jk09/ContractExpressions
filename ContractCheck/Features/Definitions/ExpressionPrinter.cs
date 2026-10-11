@@ -233,6 +233,12 @@ internal static class ExpressionPrinter
 
     private static void WriteMember(StringBuilder b, MemberExpression member)
     {
+        if (ByRefPlaceholders.Is(member.Member, out bool isOut))
+        {
+            b.Append(ByRefPlaceholders.Format((FieldInfo)member.Member, isOut));
+            return;
+        }
+
         if (member.Expression is ConstantExpression { Value: { } closure } && IsCompilerGenerated(closure.GetType()))
         {
             b.Append(member.Member.Name);
@@ -265,7 +271,7 @@ internal static class ExpressionPrinter
             }
 
             b.Append('(');
-            WriteList(b, arguments);
+            WriteArguments(b, method, arguments);
             b.Append(')');
             return;
         }
@@ -310,8 +316,28 @@ internal static class ExpressionPrinter
         }
 
         b.Append('(');
-        WriteList(b, arguments);
+        WriteArguments(b, method, arguments);
         b.Append(')');
+    }
+
+    /// <summary>Writes call arguments, with <c>out</c>/<c>ref</c> before the arguments of by-ref parameters.</summary>
+    private static void WriteArguments(StringBuilder b, MethodInfo method, IReadOnlyList<Expression> arguments)
+    {
+        ParameterInfo[] parameters = method.GetParameters();
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            if (i > 0)
+            {
+                b.Append(", ");
+            }
+
+            if (i < parameters.Length && parameters[i].ParameterType.IsByRef && !parameters[i].IsIn)
+            {
+                b.Append(parameters[i].IsOut ? "out " : "ref ");
+            }
+
+            Write(b, arguments[i], Precedence.Lowest);
+        }
     }
 
     private static void WriteLambda(StringBuilder b, LambdaExpression lambda)

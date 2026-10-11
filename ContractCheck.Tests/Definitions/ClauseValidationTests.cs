@@ -109,11 +109,12 @@ public class ClauseValidationTests
     }
 
     [Fact]
-    public void ValueAtReturn_is_rejected_because_out_parameters_are_not_supported()
+    public void ValueAtReturn_needs_an_out_or_ref_placeholder()
     {
+        // Any other field compiles as an out argument too, but stands for nothing (see ByRefParameterTests for placeholders).
         Expect.DefinitionError(
             () => Dbc.Def(static (IValidated x, int v) => x.Compute(v), static (IValidated x, int v) => Contract.Ensures(Contract.ValueAtReturn(out OutPlaceholder.Value) > 0)),
-            "Contract.ValueAtReturn", "ref/out parameters are not supported");
+            "Contract.ValueAtReturn needs an out/ref placeholder", "Dbc.Out<int>.Value");
     }
 
     [Fact]

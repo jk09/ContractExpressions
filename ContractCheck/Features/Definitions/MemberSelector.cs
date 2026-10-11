@@ -15,6 +15,12 @@ internal sealed class MemberSignature
     /// <summary>Number of parameters every clause lambda takes: the target, the member's arguments and, for setters, the value.</summary>
     public required int ClauseParameterCount { get; init; }
 
+    /// <summary>For clause parameter <c>i + 1</c> (after the target): the index of the member argument it stands for.</summary>
+    public required IReadOnlyList<int> ArgumentIndexes { get; init; }
+
+    /// <summary>The <see cref="Dbc.Out{T}"/>/<see cref="Dbc.Ref{T}"/> placeholders the selector passes for out/ref parameters.</summary>
+    public IReadOnlyDictionary<FieldInfo, ByRefSlot> Placeholders { get; init; } = new Dictionary<FieldInfo, ByRefSlot>();
+
     public bool IsAwaitable { get; init; }
 
     /// <summary>The result type of <see cref="Task{TResult}"/>/<see cref="ValueTask{TResult}"/> members.</summary>
@@ -24,6 +30,9 @@ internal sealed class MemberSignature
 
     public string DisplayName => $"{TypeNames.Format(InterfaceType)}.{Method.Name}";
 }
+
+/// <summary>An out or ref parameter a placeholder stands for: its argument index and name.</summary>
+internal sealed record ByRefSlot(int ArgumentIndex, bool IsOut, string Name);
 
 /// <summary>Resolves the member selector lambda of <c>Dbc.Def</c> and <c>Dbc.DefSetter</c>.</summary>
 internal static class MemberSelector
@@ -68,14 +77,7 @@ internal static class MemberSelector
             throw DefinitionErrors.Create(interfaceType, selector, $"'{method.Name}' is not a member of {TypeNames.Format(interfaceType)} or its base interfaces");
         }
 
-        if (arguments.Count != selector.Parameters.Count - 1
-            || arguments.Where((argument, i) => StripConversions(argument) != selector.Parameters[i + 1]).Any())
-        {
-            throw DefinitionErrors.Create(
-                interfaceType,
-                selector,
-                "pass the selector's own parameters, in declaration order, as the member's arguments, e.g. (IList x, int index, object value) => x.Insert(index, value)");
-        }
+        (List<int> argumentIndexes, Dictionary<FieldInfo, ByRefSlot> placeholders) = MapArguments(selector, interfaceType, method, arguments);
 
         if (setter)
         {
@@ -83,6 +85,7 @@ internal static class MemberSelector
                 ?? throw DefinitionErrors.Create(interfaceType, selector, "Dbc.DefSetter needs a property or an indexer");
             method = property.SetMethod
                 ?? throw DefinitionErrors.Create(interfaceType, selector, $"property '{property.Name}' has no setter");
+            argumentIndexes.Add(arguments.Count);
         }
 
         bool awaitable = Awaitables.IsAwaitable(method.ReturnType, out Type? awaitedType);
@@ -91,9 +94,73 @@ internal static class MemberSelector
             InterfaceType = interfaceType,
             Method = method,
             ClauseParameterCount = selector.Parameters.Count + (setter ? 1 : 0),
+            ArgumentIndexes = argumentIndexes,
+            Placeholders = placeholders,
             IsAwaitable = awaitable,
             AwaitedType = awaitedType,
         };
+    }
+
+    /// <summary>
+    /// Matches the call's arguments to the selector's own parameters (in order) and, for out/ref parameters, to
+    /// <see cref="Dbc.Out{T}"/>/<see cref="Dbc.Ref{T}"/> placeholders.
+    /// </summary>
+    private static (List<int> ArgumentIndexes, Dictionary<FieldInfo, ByRefSlot> Placeholders) MapArguments(
+        LambdaExpression selector, Type interfaceType, MethodInfo method, IReadOnlyList<Expression> arguments)
+    {
+        const string Usage = "pass the selector's own parameters, in declaration order, as the member's arguments, e.g. (IList x, int index, object value) => x.Insert(index, value), " +
+            "and Dbc.Out<T>.Value / Dbc.Ref<T>.Value for out/ref parameters";
+        ParameterInfo[] parameters = method.GetParameters();
+        List<int> argumentIndexes = [];
+        Dictionary<FieldInfo, ByRefSlot> placeholders = new(ByRefPlaceholders.Comparer);
+        int next = 1;
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            Expression argument = StripConversions(arguments[i]);
+            ParameterInfo parameter = parameters[i];
+            if (parameter.ParameterType.IsByRef && !parameter.IsIn)
+            {
+                string kind = parameter.IsOut ? "Out" : "Ref";
+                string expected = $"Dbc.{kind}<{TypeNames.Format(parameter.ParameterType.GetElementType()!)}>.Value";
+                if (argument is not MemberExpression { Member: FieldInfo field } || !ByRefPlaceholders.Is(field, out bool isOut))
+                {
+                    throw DefinitionErrors.Create(interfaceType, selector, $"pass {expected} for the {kind.ToLowerInvariant()} parameter '{parameter.Name}'");
+                }
+
+                if (isOut != parameter.IsOut)
+                {
+                    throw DefinitionErrors.Create(
+                        interfaceType,
+                        selector,
+                        $"'{parameter.Name}' is {(parameter.IsOut ? "an out" : "a ref")} parameter, so pass {expected} instead of {ByRefPlaceholders.Format(field, isOut)}");
+                }
+
+                if (!placeholders.TryAdd(field, new ByRefSlot(i, isOut, parameter.Name ?? $"argument {i}")))
+                {
+                    throw DefinitionErrors.Create(
+                        interfaceType,
+                        selector,
+                        $"{ByRefPlaceholders.Format(field, isOut)} is passed for two parameters; use Value, Value2 and Value3 for parameters of the same type");
+                }
+
+                continue;
+            }
+
+            if (next >= selector.Parameters.Count || argument != selector.Parameters[next])
+            {
+                throw DefinitionErrors.Create(interfaceType, selector, Usage);
+            }
+
+            argumentIndexes.Add(i);
+            next++;
+        }
+
+        if (next != selector.Parameters.Count)
+        {
+            throw DefinitionErrors.Create(interfaceType, selector, Usage);
+        }
+
+        return (argumentIndexes, placeholders);
     }
 
     /// <summary>The property whose getter or setter is <paramref name="accessor"/>, if any.</summary>
