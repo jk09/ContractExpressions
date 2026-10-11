@@ -1,5 +1,3 @@
-@AGENTS.md
-
 ## Workflow
 
 - Build and test: `dotnet build ContractExpressions.sln` and `dotnet test ContractExpressions.sln`.
