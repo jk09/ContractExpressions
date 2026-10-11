@@ -36,6 +36,9 @@ internal sealed class InterfaceContracts(Type interfaceType)
 
     public ImmutableArray<CompiledClause> Invariants => invariants;
 
+    /// <summary>No invariant and no member clause has been defined.</summary>
+    public bool IsEmpty => invariants.IsEmpty && members.IsEmpty;
+
     public ImmutableArray<CompiledClause> ClausesFor(MethodInfo method) =>
         members.TryGetValue(method, out ImmutableArray<CompiledClause> clauses) ? clauses : [];
 
