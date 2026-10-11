@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>ContractCheck</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>jk09</Authors>
+    <Description>Runtime Design-by-Contract for .NET interfaces: preconditions, postconditions and invariants written with System.Diagnostics.Contracts and enforced by a DispatchProxy.</Description>
+    <PackageTags>design-by-contract;dbc;contracts;code-contracts;preconditions;postconditions;invariants</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/jk09/ContractExpressions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" Visible="false" />
+    <InternalsVisibleTo Include="ContractCheck.Tests" />
+  </ItemGroup>
+
+</Project>

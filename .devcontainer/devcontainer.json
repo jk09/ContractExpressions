@@ -1,6 +1,6 @@
 {
-    "name": "ContractExpressions Dev",
-    "image": "mcr.microsoft.com/devcontainers/dotnet:1-9.0-bookworm",
+    "name": "ContractCheck Dev",
+    "image": "mcr.microsoft.com/devcontainers/dotnet:1-10.0-noble",
     "features": {
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers/features/github-cli:1": {}

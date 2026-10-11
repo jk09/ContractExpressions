@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- FsCheck property tests that use the ContractCheck contracts of ContractCheck.Samples as their oracle.
+       Created by .claude/skills/dbc-property-tests/scripts/init-property-tests.ps1. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsContractPropertyTestProject>true</IsContractPropertyTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FsCheck" />
+    <Using Include="FsCheck.Fluent" />
+    <Using Include="FsCheck.Xunit" />
+    <Using Include="ContractCheck" />
+    <Using Include="ContractCheck.FsCheck" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FsCheck.Xunit.v3" Version="3.3.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ContractCheck.Samples\ContractCheck.Samples.csproj" />
+    <ProjectReference Include="..\ContractCheck\ContractCheck.csproj" />
+    <ProjectReference Include="..\ContractCheck.FsCheck\ContractCheck.FsCheck.csproj" />
+  </ItemGroup>
+
+</Project>
