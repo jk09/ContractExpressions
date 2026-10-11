@@ -11,7 +11,7 @@
 | **Owner** | jk09 |
 | **Reviewers** | jk09 |
 | **Created on** | 2026-10-11 12:05 +00:00 |
-| **Last updated** | 2026-10-11 18:02 +00:00 |
+| **Last updated** | 2026-10-11 18:17 +00:00 |
 | **Affected features** | `ContractCheck/Features/Definitions`, `ContractCheck/Features/Enforcement`, `ContractCheck/Features/Failures` (all new); removed projects: `ContractExpressions`, `ContractExpressions4`, `ContractExpressions4.Check`, `MyTool.Agent` (+ their test projects) |
 | **Target release** | ContractCheck 0.1.0 |
 | **Related links** | Legacy reference: `CodeContracts` submodule (Foxtrot rewriter, `Foxtrot/Tests`, `Demo`) |
@@ -223,5 +223,6 @@ Behaviour both projects already share (kept): interface-only proxies, `[Contract
   Weakened assertions it found (member names, per-element checks, a merged theory) were restored, and the one changed
   outcome (Devscovery `AbsNetStyle(int.MinValue)` now throws `OverflowException`, as in the legacy demo) is explained in
   the test.
-- **Repository:** `dotnet/runfile-discovery/*` (tracked tool caches) and `plans/Plan_Agentic_Dbc_Contract_Generation.md`
-  (describes the removed MyTool.Agent) were left untouched – candidates for deletion by the owner.
+- **Repository:** `plans/Plan_Agentic_Dbc_Contract_Generation.md` (described the removed MyTool.Agent) was deleted at the
+  owner's request; `dotnet/runfile-discovery/*` (tracked tool caches) was left untouched.
+- **ADRs:** 0001–0005 were drafted as Proposed and accepted by the owner on 2026-10-11.

@@ -1,6 +1,6 @@
 # 0003. Check interface invariants at creation and after non-pure members only
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-11
 - Features: Enforcement
 - Spec: amber-harbor-v9p6ri

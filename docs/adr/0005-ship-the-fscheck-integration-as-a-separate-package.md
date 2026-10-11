@@ -1,6 +1,6 @@
 # 0005. Ship the FsCheck integration as a separate package, ContractCheck.FsCheck
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-11
 - Features: –
 - Spec: amber-harbor-v9p6ri

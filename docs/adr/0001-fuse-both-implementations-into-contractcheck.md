@@ -1,6 +1,6 @@
 # 0001. Fuse ContractExpressions and ContractExpressions4 into one library, ContractCheck
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-11
 - Features: Definitions, Enforcement, Failures
 - Spec: amber-harbor-v9p6ri

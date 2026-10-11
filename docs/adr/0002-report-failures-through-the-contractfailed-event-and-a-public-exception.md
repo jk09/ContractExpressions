@@ -1,6 +1,6 @@
 # 0002. Report failures through Contract.ContractFailed and a public ContractViolationException
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-11
 - Features: Failures
 - Spec: amber-harbor-v9p6ri

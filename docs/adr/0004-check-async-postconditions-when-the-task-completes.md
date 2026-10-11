@@ -1,6 +1,6 @@
 # 0004. Check postconditions of async members when the returned task completes
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-11
 - Features: Enforcement
 - Spec: amber-harbor-v9p6ri
