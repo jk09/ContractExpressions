@@ -9,12 +9,13 @@ namespace ContractCheck;
 internal readonly record struct BoundClause(CompiledClause Clause, int OldValueIndex);
 
 /// <summary>
-/// Everything a proxy of one interface checks for one member, merged from the interface and its base interfaces
-/// (base first) and grouped by evaluation stage. Cached per (interface, member) until new clauses are registered.
+/// Everything a proxy of one interface checks for one member at one checking level, merged from the interface and its
+/// base interfaces (base first) and grouped by evaluation stage. Cached per (interface, member, level) until new clauses
+/// are registered.
 /// </summary>
 internal sealed class MemberContracts
 {
-    private static readonly ConcurrentDictionary<(Type Interface, MethodInfo Member), MemberContracts> Cache = new(KeyComparer.Instance);
+    private static readonly ConcurrentDictionary<(Type Interface, MethodInfo Member, ContractCheckingLevel Level), MemberContracts> Cache = new(KeyComparer.Instance);
     private static readonly ConcurrentDictionary<Type, (int Version, ImmutableArray<BoundClause> Invariants)> CreationCache = new();
 
     private readonly int version;
@@ -51,20 +52,26 @@ internal sealed class MemberContracts
 
     public static MemberContracts For(Type interfaceType, MethodInfo member)
     {
+        ContractCheckingLevel level = CheckingLevels.Current;
         int current = ContractRegistry.Version;
-        if (Cache.TryGetValue((interfaceType, member), out MemberContracts? cached) && cached.version == current)
+        if (Cache.TryGetValue((interfaceType, member, level), out MemberContracts? cached) && cached.version == current)
         {
             return cached;
         }
 
-        MemberContracts built = Build(interfaceType, member, current);
-        Cache[(interfaceType, member)] = built;
+        MemberContracts built = Build(interfaceType, member, current, level);
+        Cache[(interfaceType, member, level)] = built;
         return built;
     }
 
-    /// <summary>The interface invariants <see cref="Dbc.Make{T}(T)"/> checks before returning a proxy.</summary>
+    /// <summary>The interface invariants <see cref="Dbc.Make{T}(T)"/> checks before returning a proxy (none below <see cref="ContractCheckingLevel.Full"/>).</summary>
     public static ImmutableArray<BoundClause> CreationInvariants(Type interfaceType)
     {
+        if (!CheckingLevels.Includes(CheckingLevels.Current, ClauseKind.Invariant))
+        {
+            return [];
+        }
+
         int current = ContractRegistry.Version;
         if (CreationCache.TryGetValue(interfaceType, out var cached) && cached.Version == current)
         {
@@ -109,19 +116,20 @@ internal sealed class MemberContracts
         context.OldValues = all;
     }
 
-    private static MemberContracts Build(Type interfaceType, MethodInfo member, int version)
+    private static MemberContracts Build(Type interfaceType, MethodInfo member, int version, ContractCheckingLevel level)
     {
-        if (ContractAttributes.RuntimeCheckingDisabled(interfaceType, member))
+        if (level == ContractCheckingLevel.None || ContractAttributes.RuntimeCheckingDisabled(interfaceType, member))
         {
             return new MemberContracts(interfaceType, member, version);
         }
 
+        // Clauses the level leaves out are dropped here, so they cost nothing: no old values, no task wrapping.
         List<CompiledClause> clauses = [];
         List<CompiledClause> invariants = [];
         foreach (InterfaceContracts source in Sources(interfaceType))
         {
-            clauses.AddRange(source.ClausesFor(member).Where(static c => !c.RuntimeIgnored));
-            invariants.AddRange(source.Invariants.Where(static c => !c.RuntimeIgnored));
+            clauses.AddRange(source.ClausesFor(member).Where(c => !c.RuntimeIgnored && CheckingLevels.Includes(level, c.Kind)));
+            invariants.AddRange(source.Invariants.Where(c => !c.RuntimeIgnored && CheckingLevels.Includes(level, c.Kind)));
         }
 
         int oldValueIndex = 0;
@@ -168,14 +176,14 @@ internal sealed class MemberContracts
         }
     }
 
-    private sealed class KeyComparer : IEqualityComparer<(Type Interface, MethodInfo Member)>
+    private sealed class KeyComparer : IEqualityComparer<(Type Interface, MethodInfo Member, ContractCheckingLevel Level)>
     {
         public static readonly KeyComparer Instance = new();
 
-        public bool Equals((Type Interface, MethodInfo Member) x, (Type Interface, MethodInfo Member) y) =>
-            x.Interface == y.Interface && MethodIdentity.Comparer.Equals(x.Member, y.Member);
+        public bool Equals((Type Interface, MethodInfo Member, ContractCheckingLevel Level) x, (Type Interface, MethodInfo Member, ContractCheckingLevel Level) y) =>
+            x.Interface == y.Interface && x.Level == y.Level && MethodIdentity.Comparer.Equals(x.Member, y.Member);
 
-        public int GetHashCode((Type Interface, MethodInfo Member) obj) =>
-            HashCode.Combine(obj.Interface, MethodIdentity.Comparer.GetHashCode(obj.Member));
+        public int GetHashCode((Type Interface, MethodInfo Member, ContractCheckingLevel Level) obj) =>
+            HashCode.Combine(obj.Interface, obj.Level, MethodIdentity.Comparer.GetHashCode(obj.Member));
     }
 }

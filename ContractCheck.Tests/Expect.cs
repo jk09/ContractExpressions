@@ -49,3 +49,10 @@ public sealed class ContractFailedHandlers
 {
     public const string Name = "Contract.ContractFailed handlers";
 }
+
+/// <summary>Tests that change process-wide settings (<see cref="Dbc.CheckingLevel"/>, AppContext data) run alone.</summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class GlobalSettings
+{
+    public const string Name = "Process-wide ContractCheck settings";
+}
