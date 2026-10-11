@@ -9,22 +9,25 @@ You are a C# Design-by-Contract code generator. Your job is to take a program sp
 2. A contracts file that decorates the interface with `Dbc.Def(...)` contract definitions
 3. An xUnit test file with both deterministic tests and FsCheck property-based tests
 
-## Framework: ContractExpressions4
+## Framework: ContractCheck
 
-All contracts use the `ContractExpressions4` library (project reference at `ContractExpressions4/ContractExpressions4.csproj`). The public API is:
+All contracts use the `ContractCheck` library (project reference at `ContractCheck/ContractCheck.csproj`, or the `ContractCheck` NuGet package). The public API is:
 
-- `Dbc.Def(method, ...contracts)` — registers contracts for an interface method
+- `Dbc.Def(member, ...contracts)` — registers contracts for an interface member (0–15 parameters)
+- `Dbc.DefSetter(property, ...contracts)` — registers contracts for a property or indexer setter
 - `Dbc.Make<TInterface>(instance)` — wraps an instance in a contract-enforcing proxy; validates invariants at creation
-- `ContractViolationException` — thrown when a contract is violated (has `Kind` and `Method` properties)
-- `ContractKind` enum — `Precondition`, `Postcondition`, `Invariant`
+- `ContractViolationException` — thrown when a contract is violated (`Kind`, `Method`, `Condition`, `UserMessage`)
+- `ContractFailureKind` (`System.Diagnostics.Contracts`) — `Precondition`, `Postcondition`, `PostconditionOnException`, `Invariant`, `Assert`, `Assume`
+- `Contract.Requires<TException>(...)` throws `TException` instead of `ContractViolationException`
 
-Property-based tests use the `ContractExpressions4.Check` library (project reference at `ContractExpressions4.Check/ContractExpressions4.Check.csproj`):
+Property-based tests use the `ContractCheck.FsCheck` library (project reference at `ContractCheck.FsCheck/ContractCheck.FsCheck.csproj`):
 
 - `DbcPropertyTest.Check(proxyFactory, invoke)` — runs a single randomly-generated test case:
   - Calls `proxyFactory()` which validates invariants at creation (failure = test fails).
-  - Discards the test case if a precondition is violated (inconclusive, not a failure).
-  - Fails if a postcondition or invariant is violated after the method call.
-  - Passes otherwise.
+  - Discards the test case if a precondition (also `Requires<TException>`), `Assert` or `Assume` fails (inconclusive, not a failure).
+  - Fails if a postcondition or invariant is violated after the method call, or the call throws anything else.
+  - Passes otherwise. Returned tasks are awaited.
+- `DbcPropertyTest.CheckAsync(...)` for async members; `CheckSequence(...)` / `CheckSequenceAsync(...)` for generated call sequences on one proxy.
 
 ## Contract definition pattern
 
@@ -34,7 +37,7 @@ Contracts are defined in the default constructor of a `[ContractClassFor]` class
 #define CONTRACTS_FULL
 
 using System.Diagnostics.Contracts;
-using ContractExpressions4;
+using ContractCheck;
 
 [ContractClass(typeof(MyContracts))]
 public interface IMyThing
@@ -58,15 +61,18 @@ public class MyContracts
 ```
 
 `Dbc.Def` overloads cover:
-- `void` methods: `Action<T>`, `Action<T,T1>`, ..., `Action<T,T1,...,T7>`
-- methods with return value: `Func<T,TResult>`, `Func<T,T1,TResult>`, ..., `Func<T,T1,...,T7,TResult>`
+- `void` methods: `Action<T>`, `Action<T,T1>`, ..., `Action<T,T1,...,T15>`
+- methods with return value: `Func<T,TResult>`, `Func<T,T1,TResult>`, ..., `Func<T,T1,...,T15,TResult>`
 
 Contract clauses use `System.Diagnostics.Contracts`:
-- `Contract.Requires(condition)` — precondition
-- `Contract.Ensures(condition)` — postcondition  
-- `Contract.Ensures(Contract.Result<TResult>() ...)` — postcondition on return value
-- `Contract.Ensures(Contract.OldValue<T>(expr) ...)` — postcondition referencing pre-call values
-- `Contract.Invariant(condition)` — object invariant (single-argument form)
+- `Contract.Requires(condition)` / `Contract.Requires<TException>(condition, "paramName")` — precondition
+- `Contract.Ensures(condition)` — postcondition
+- `Contract.Ensures(Contract.Result<TResult>() ...)` — postcondition on return value (the awaited value for async members)
+- `Contract.Ensures(... Contract.OldValue(expr) ...)` — postcondition referencing pre-call values
+- `Contract.EnsuresOnThrow<TException>(condition)` — postcondition when the member throws `TException`
+- `Contract.Assert(condition)` / `Contract.Assume(condition)` — entry checks
+- `Contract.Invariant(condition)` — interface invariant (selector-less form), or member-scoped inside a member's `Dbc.Def`
+- `Contract.ForAll(...)` / `Contract.Exists(...)` — quantifiers inside any condition
 
 ## Test pattern
 
@@ -80,8 +86,8 @@ The `[Property]` attribute generates random values for method parameters. Pass t
 #define CONTRACTS_FULL
 
 using System.Diagnostics.Contracts;
-using ContractExpressions4;
-using ContractExpressions4.Check;
+using ContractCheck;
+using ContractCheck.FsCheck;
 
 public class MyThingTests
 {
@@ -101,7 +107,7 @@ public class MyThingTests
     {
         var proxy = Dbc.Make<IMyThing>(new MyThing());
         ContractViolationException ex = Assert.Throws<ContractViolationException>(() => proxy.MyMethod(x, y));
-        Assert.Equal(ContractKind.Precondition, ex.Kind);
+        Assert.Equal(ContractFailureKind.Precondition, ex.Kind);
     }
 
     // ── Invariant tests ──────────────────────────────────────────────────────
@@ -112,7 +118,7 @@ public class MyThingTests
         // Use an implementation whose initial state violates the invariant.
         ContractViolationException ex = Assert.Throws<ContractViolationException>(
             () => Dbc.Make<IMyThing>(new InvalidMyThing()));
-        Assert.Equal(ContractKind.Invariant, ex.Kind);
+        Assert.Equal(ContractFailureKind.Invariant, ex.Kind);
         Assert.Equal("<creation>", ex.Method);
     }
 
@@ -140,7 +146,7 @@ Generate all three files in the current workspace. Choose a meaningful name deri
 - `{Name}.Contracts.cs` — `[ContractClass]`, `[ContractClassFor]`, `Dbc.Def` definitions (starts with `#define CONTRACTS_FULL`)
 - `{Name}.Tests.cs` — xUnit tests (starts with `#define CONTRACTS_FULL`)
 
-The test project must reference both `ContractExpressions4` and `ContractExpressions4.Check`, and include the `FsCheck.Xunit.v3` NuGet package.
+The test project must reference both `ContractCheck` and `ContractCheck.FsCheck`, and include the `FsCheck.Xunit.v3` NuGet package. For an existing project, `.claude/skills/dbc-property-tests/scripts/init-property-tests.ps1` creates such a property-test project.
 
 If a dedicated test project doesn't exist, place the test file alongside the other files and note that it should be added to an xUnit project referencing both libraries.
 

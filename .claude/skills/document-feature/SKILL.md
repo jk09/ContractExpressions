@@ -9,7 +9,7 @@ Keep feature docs in sync with the code. Docs describe the **current** behaviour
 
 ## Conventions
 
-- Feature folder: `ContractExpressions4/Features/<Feature>/` (one folder = one feature).
+- Feature folder: `ContractCheck/Features/<Feature>/` (one folder = one feature).
 - Per feature: `README.md` (for humans + agents, ≤ ~30 lines) and optionally `CLAUDE.md` (agent-only rules/gotchas, ≤ ~15 lines).
 - Decisions: `docs/adr/NNNN-<slug>.md`, append-only.
 - Index: `docs/features.md`, one row per feature folder. The root `CLAUDE.md` points here; keep feature rules out of the root `CLAUDE.md`.
@@ -81,8 +81,8 @@ Rebuild the whole table from the feature folders (don't patch rows), sorted by n
 
 | Feature | Purpose | Flags | Docs |
 |---|---|---|---|
-| Invoicing | Generates and emails monthly invoices. | – | [README](../ContractExpressions4/Features/Invoicing/README.md) |
-| Orders | Create, update and refund customer orders. | `PartialRefunds` | [README](../ContractExpressions4/Features/Orders/README.md) |
+| Invoicing | Generates and emails monthly invoices. | – | [README](../ContractCheck/Features/Invoicing/README.md) |
+| Orders | Create, update and refund customer orders. | `PartialRefunds` | [README](../ContractCheck/Features/Orders/README.md) |
 ```
 
 Purpose = the README's first sentence. Features without a README get `⚠ undocumented`.

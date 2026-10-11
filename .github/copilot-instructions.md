@@ -2,60 +2,67 @@
 
 ## Architecture
 
-ContractExpressions is a runtime Design-by-Contract library for .NET 9. It replaces the discontinued .NET Framework CodeContracts IL-rewriting approach with dynamic expression-tree evaluation via `DispatchProxy`.
+ContractCheck is a runtime Design-by-Contract library for .NET 8, 9 and 10. It keeps the `System.Diagnostics.Contracts`
+vocabulary of the discontinued CodeContracts but replaces IL rewriting with expression trees and `DispatchProxy`.
 
-**Core flow:** Contracts are defined as `Expression<Action<TIntf>>` lambdas in `[ContractClassFor]` constructors using `Dbc.Def(...)` → parsed by `DbcDefVisitor` (ExpressionVisitor) → compiled delegates stored in `ContractRegistry` (singleton) → enforced at runtime by `ContractAwareProxy<T>` which intercepts every interface call.
+**Core flow:** contracts are `Dbc.Def` / `Dbc.DefSetter` lambdas in the constructor of a `[ContractClassFor]` class →
+validated and compiled once (`ContractCheck/Features/Definitions`) → stored per interface member in `ContractRegistry` →
+`Dbc.Make<T>(target)` loads the contract classes of `T` and its base interfaces and returns a proxy that checks them on
+every call (`ContractCheck/Features/Enforcement`) → failures raise `Contract.ContractFailed`, then throw
+`ContractViolationException` (`ContractCheck/Features/Failures`).
 
-**Proxy invocation order:** Preconditions → CollectOldValues → target method → Invariants → Postconditions (on exception: PostconditionsOnThrow instead of Invariants+Postconditions).
+**Order per call:** entry checks (`Requires`, `Requires<TEx>`, `Assert`, `Assume`) → old values → target →
+`EnsuresOnThrow` (if it threw) → `Ensures` → member invariants → interface invariants (not after getters / `[Pure]`).
+Async members: postconditions and invariants run when the task completes.
 
-Only two public APIs exist: `Dbc.Def(...)` (register contracts) and `Dbc.Make<T>(target)` (create proxy). Everything else is `internal`.
+Public API: `Dbc.Def`, `Dbc.DefSetter`, `Dbc.Make<T>`, `ContractViolationException`, `GetContractFailureKind()` /
+`IsEntryCheckFailure()`; `ContractCheck.FsCheck` adds `DbcPropertyTest`. Everything else is `internal`.
 
 ## Code Style
 
-- C# 12, .NET 9.0, file-scoped namespaces, nullable enabled, implicit usings
-- Primary constructors where appropriate (see `DbcDefVisitor(Type contractType)`)
-- One class per file, filename matches class name
-- New types should be `internal` unless they extend the public API
-- Expression visitors follow naming: `Contract*Patcher` for rewriters, `*Visitor` for readers
-- Contract definitions use `static` lambdas to avoid closures
+- Latest C#, file-scoped namespaces, nullable enabled, implicit usings, `TreatWarningsAsErrors`, XML docs on public API
+- One feature per folder under `ContractCheck/Features/`; new types `internal` unless they extend the public API
+- Contract definitions use `static` lambdas; files that call `Contract.*` or carry contract attributes (`[ContractClass]`, `[Pure]`) start with `#define CONTRACTS_FULL` – never define it project-wide
 
 ## Build and Test
 
 ```bash
-dotnet build                  # Builds ContractExpressions + ContractExpressions.Tests
-dotnet test                   # Runs all 25 xUnit v3 tests
-dotnet test --filter "FullyQualifiedName~MyList"  # Subset
+dotnet build ContractExpressions.sln
+dotnet test ContractExpressions.sln
+dotnet test ContractCheck.Tests --filter "FullyQualifiedName~Invariant"   # subset
 ```
 
 ## Project Conventions
 
-**Contract definition pattern** — always in `[ContractClassFor]` constructors:
 ```csharp
 [ContractClassFor(typeof(IMyList))]
-class ListContracts {
-    public ListContracts() {
+internal sealed class MyListContracts
+{
+    public MyListContracts()
+    {
         Dbc.Def(static (IMyList x, object a) => x.Add(a),
-                static (IMyList x, object a) => Contract.Requires(a != null),
-                static (IMyList x, object a) => Contract.Ensures(Contract.Result<int>() >= 0));
+            static (IMyList x, object a) => Contract.Requires(a != null),
+            static (IMyList x, object a) => Contract.Ensures(x.Count == Contract.OldValue(x.Count) + 1));
+
+        Dbc.Def(static (IMyList x) => Contract.Invariant(x.Count >= 0));
     }
 }
 ```
 
-**Expression visitor pipeline** (postconditions): raw expression → `ContractResultPatcher` → `ContractOldValuePatcher` → `ContractValueAtReturnPatcher` → compiled delegate. Each patcher rewrites `Contract.*` calls into `ContractPatch.*` calls that read from `ContractContext`.
-
-**Test files** must start with `#define CONTRACTS_FULL`. Test classes exercising contract failures must use `IClassFixture<ContractFailureUnwindFixture>` which subscribes `Contract.ContractFailed` with `e.SetUnwind()`. Each test file defines its own interfaces, implementations, and contract classes—self-contained.
-
-**`Dbc.Def` overloads** cover 0–7 parameters × void/return (16 overloads in `Dbc.cs`). When adding parameter support beyond 7, add both `Action` and `Func` variants.
+- Tests (`ContractCheck.Tests`, xUnit v3) are self-contained per file: interfaces, implementations and contract classes
+  live in the test file. Tests that subscribe `Contract.ContractFailed` join the non-parallel `ContractFailedHandlers`
+  collection. Ported tests name their origin (`…_ported_from_<legacy test>`).
+- `Dbc.Def` overloads cover 0–15 parameters (void and value-returning); keep `Dbc.Def.cs` / `Dbc.DefSetter.cs` uniform.
 
 ## Key Files
 
 | File | Role |
 |------|------|
-| `ContractExpressions/Dbc.cs` | Public API — `Def` overloads + `Make<T>` |
-| `ContractExpressions/ContractAwareProxy.cs` | DispatchProxy — intercepts calls, runs contracts |
-| `ContractExpressions/DbcDefVisitor.cs` | Parses contract expressions into compiled delegates |
-| `ContractExpressions/ContractPatch.cs` | Runtime evaluation replacing `Contract.*` methods |
-| `ContractExpressions/ContractRegistry.cs` | Singleton storing all registered contracts |
-| `ContractExpressions/ContractContext.cs` | Carries Result/OldValues/ValuesAtReturn through evaluation |
-| `.specs/` | Development specifications and task backlog |
-| `CodeContracts/` | Git submodule — original Microsoft CodeContracts (reference only) |
+| `ContractCheck/Features/Definitions/Dbc.Def.cs`, `Dbc.DefSetter.cs` | Public `Def` / `DefSetter` overloads |
+| `ContractCheck/Features/Definitions/ClauseCompiler.cs` | Validates and compiles clauses (`Result`, `OldValue`, quantifiers) |
+| `ContractCheck/Features/Enforcement/ContractInvoker.cs` | Runs the checks around each proxied call |
+| `ContractCheck/Features/Enforcement/ContractClassLoader.cs` | Loads `[ContractClass]` classes once per interface |
+| `ContractCheck/Features/Failures/FailureReporter.cs` | `ContractFailed` event + exceptions |
+| `ContractCheck.FsCheck/DbcPropertyTest.cs` | FsCheck properties with contracts as the oracle |
+| `docs/specs/`, `docs/adr/`, `docs/features.md` | Specs, decisions, feature index |
+| `CodeContracts/` | Git submodule – original Microsoft CodeContracts (reference only) |
