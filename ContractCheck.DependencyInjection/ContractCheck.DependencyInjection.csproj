@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -10,14 +10,9 @@
 
   <PropertyGroup>
     <PackageId>ContractCheck.DependencyInjection</PackageId>
-    <Version>0.1.0</Version>
-    <Authors>jk09</Authors>
     <Description>Microsoft.Extensions.DependencyInjection integration for ContractCheck: AddContractChecks wraps existing service registrations in Dbc.Make proxies that check their Design-by-Contract contracts.</Description>
     <PackageTags>design-by-contract;dbc;contracts;dependency-injection</PackageTags>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/jk09/ContractExpressions</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,8 +23,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
   </ItemGroup>
 
+  <!-- PrivateAssets="none": the ContractCheck analyzer reaches projects that only install this package, too. -->
   <ItemGroup>
-    <ProjectReference Include="..\ContractCheck\ContractCheck.csproj" />
+    <ProjectReference Include="..\ContractCheck\ContractCheck.csproj" PrivateAssets="none" />
   </ItemGroup>
 
 </Project>

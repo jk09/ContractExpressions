@@ -1,0 +1,31 @@
+<Project>
+
+  <!-- Package metadata shared by ContractCheck, ContractCheck.FsCheck and ContractCheck.DependencyInjection.
+       The release workflow overrides Version with the tag (v1.2.3 → 1.2.3). -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Authors>jk09</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/jk09/ContractExpressions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/jk09/ContractExpressions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <!-- Source Link (built into the .NET SDK) maps the PDBs to the commit; the PDBs ship in .snupkg symbol packages. -->
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- Libraries target every supported .NET; tests and the samples they use run on the newest only, unless
+       TestAllFrameworks=true (CI), which runs them on every framework the libraries target. -->
+  <PropertyGroup>
+    <LibraryTargetFrameworks>net8.0;net9.0;net10.0</LibraryTargetFrameworks>
+    <TestTargetFrameworks>net10.0</TestTargetFrameworks>
+    <TestTargetFrameworks Condition="'$(TestAllFrameworks)' == 'true'">$(LibraryTargetFrameworks)</TestTargetFrameworks>
+  </PropertyGroup>
+
+</Project>
