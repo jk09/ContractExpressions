@@ -23,7 +23,7 @@ namespace ContractCheck.FsCheck;
 /// <see cref="ValueTask{TResult}"/>); <c>CheckAsync</c> takes <see cref="Task"/>-returning delegates only, so
 /// <c>async</c> lambdas bind to it unambiguously on every C# version.
 /// </summary>
-public static class DbcPropertyTest
+public static partial class DbcPropertyTest
 {
     private static readonly MethodInfo AsTaskOfValueTask = typeof(DbcPropertyTest).GetMethod(nameof(AsTask), BindingFlags.NonPublic | BindingFlags.Static)!;
 
@@ -145,6 +145,8 @@ public static class DbcPropertyTest
     private static Property Discarded() => Prop.When(false, () => true);
 
     /// <summary>Blocks on a returned task, so async postconditions are checked within the generated case.</summary>
+    internal static void AwaitResult(object? result) => Await(result);
+
     private static void Await(object? result)
     {
         switch (result)

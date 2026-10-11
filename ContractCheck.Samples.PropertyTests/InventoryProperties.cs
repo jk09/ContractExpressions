@@ -37,6 +37,11 @@ public class InventoryProperties
                 }
             });
 
+    /// <summary>Random calls generated from the interface; a short reservation's documented exception is an expected outcome.</summary>
+    [Property]
+    public Property Any_calls_keep_the_contracts() =>
+        DbcPropertyTest.CheckCalls(NewInventory, new CallOptions { ExpectedExceptions = [typeof(InvalidOperationException)] });
+
     [Property]
     public Property Restocks_reservations_and_queries_keep_the_contracts(InventoryStep[] steps) =>
         DbcPropertyTest.CheckSequenceAsync(NewInventory, steps.Select(step => (Func<IInventory, Task>)step.Apply));
