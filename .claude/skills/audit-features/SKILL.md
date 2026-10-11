@@ -7,11 +7,11 @@ description: Audit the codebase for feature sprawl – undocumented or missing f
 
 Read-only: report findings, don't fix them unless the user asks.
 
-1. Compare `docs/features.md` with the folders in `ContractExpressions4/Features/`. List:
+1. Compare `docs/features.md` with the folders in `ContractCheck/Features/`. List:
    - **Undocumented** – folder without a row or without a `README.md`.
    - **Missing** – row or README for a folder that no longer exists.
    - **Overlapping** – features whose Purpose or Entry points cover the same responsibility; name both and the overlap.
-   - **Cross-feature dependencies** added since the last audit (Dependencies sections, `git log --since="1 month ago" -- ContractExpressions4/Features`).
+   - **Cross-feature dependencies** added since the last audit (Dependencies sections, `git log --since="1 month ago" -- ContractCheck/Features`).
 2. **Overdue flags**: from every feature README's Feature flags table, list flags whose "Remove by" date is today or earlier, with owner. Flags without owner or date count as overdue.
 3. **Stale instructions**: check the root `CLAUDE.md` and each feature `CLAUDE.md` for lines that are outdated (refer to missing files, features or rules), duplicate a README or another CLAUDE.md, or belong in a skill (procedures) rather than an always-loaded rule.
 4. **Specs and ADRs**: specs still `Active` with no commit in the last month; ADRs left `Proposed`; ADRs for removed features not marked `Obsolete`.

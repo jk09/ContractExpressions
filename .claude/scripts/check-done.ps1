@@ -8,7 +8,7 @@ $ErrorActionPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $root          = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
-$featuresRoot  = 'ContractExpressions4/Features'
+$featuresRoot  = 'ContractCheck/Features'
 $testPattern   = '(?i)(^|/)(tests?|__tests__)/|\.(test|spec)\.[^/]+$|tests?\.cs$|(^|/)[^/]*\.Tests/'
 $activePattern = '^(\|\s*\*\*Status\*\*\s*\|\s*Active\b|status:\s*active\s*$)'
 
