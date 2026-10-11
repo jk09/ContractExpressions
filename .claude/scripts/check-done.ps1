@@ -46,17 +46,14 @@ foreach ($dir in $featureDirs) {
     }
 }
 
-# 2. Code changed while a spec is active, but the spec wasn't touched.
-$spec = Get-ChildItem -Path (Join-Path $root 'docs/specs') -Filter '*.md' -File |
+# 2. Code changed while specs are active, but none of them was touched.
+$specs = @(Get-ChildItem -Path (Join-Path $root 'docs/specs') -Filter '*.md' -File |
     Where-Object Name -ne 'feature-spec-template.md' |
     Sort-Object Name |
     Where-Object { Select-String -Path $_.FullName -Pattern $activePattern -Quiet } |
-    Select-Object -First 1
-if ($spec -and $code) {
-    $specRel = [System.IO.Path]::GetRelativePath($root, $spec.FullName) -replace '\\', '/'
-    if ($changed -notcontains $specRel) {
-        $problems += "Code changed but the active spec $specRel wasn't updated (acceptance criteria, section 14) - run the ship skill."
-    }
+    ForEach-Object { [System.IO.Path]::GetRelativePath($root, $_.FullName) -replace '\\', '/' })
+if ($specs -and $code -and -not ($specs | Where-Object { $changed -contains $_ })) {
+    $problems += "Code changed but no active spec ($($specs -join ', ')) was updated (acceptance criteria, section 14) - run the ship skill."
 }
 
 if ($problems) {
