@@ -11,7 +11,7 @@
 | **Owner** | jk09 |
 | **Reviewers** | jk09 |
 | **Created on** | 2026-10-11 18:22 +00:00 |
-| **Last updated** | 2026-10-12 02:10 +00:00 |
+| **Last updated** | 2026-10-12 02:15 +00:00 |
 | **Affected features** | `ContractCheck/Features/Definitions` (ref/out placeholders, `Dbc.HasContracts`), `ContractCheck/Features/Enforcement` (checking levels, non-generic `Dbc.Make`, by-ref values); new projects `ContractCheck.Analyzers`, `ContractCheck.DependencyInjection`; `ContractCheck.FsCheck` (generated call sequences); `.github/workflows` (new) |
 | **Target release** | ContractCheck 0.1.0 (first release). FR 4–7, 11 and 15–17 merged with jk09/ContractExpressions#5; the rest follows in a second pull request from the same branch |
 | **Related links** | amber-harbor-v9p6ri (fusion spec); quartz-willow-x7kgtw (source-generated proxies, later) |
@@ -141,7 +141,7 @@
 - [x] AC4 CCK0008 fires for a `Requires` defined through a derived interface on an inherited member and not for the base interface's own contract or the derived interface's own members.
 - [x] AC5 DI tests: transient/scoped/singleton, type/factory/instance and keyed registrations are wrapped; implementations are still disposed by the container; double registration doesn't double-wrap; errors for missing registrations and non-interfaces; `AddContractChecks()` wraps only interfaces with contracts.
 - [x] AC6 `Dbc.Make(Type, object)` and `Dbc.HasContracts(Type)` are covered by tests.
-- [ ] AC7 `ci.yml` and `release.yml` exist; CI on PR #5 is green (Debug and Release, net8.0/net9.0/net10.0 tests).
+- [x] AC7 `ci.yml` and `release.yml` exist; CI on PR #5 is green (Debug and Release, net8.0/net9.0/net10.0 tests).
 - [x] AC8 ref/out: tests for out postconditions, ref entry/exit/old values, `ValueAtReturn`, two same-typed out parameters, `in` parameters, and every definition error in FR 17.
 - [x] AC9 `CheckCalls` tests: finds an invariant broken by a call sequence, skips rejected calls, honours `ExpectedExceptions` and `Exclude`, awaits async members, leaves out unsupported members, prints a readable call log.
 - [x] AC10 `dotnet build` with zero warnings and `dotnet test` green in Debug and Release.
@@ -163,7 +163,8 @@
 - **Delivery:** the owner merged PR #5 on 2026-10-11 at d2d2dc0 (checking levels, `Dbc.Make(Type, object)` /
   `Dbc.HasContracts`, ref/out placeholders). `CheckCalls`, the DI package, the analyzer and CI were pushed after the
   merge and go into a second pull request; main was merged into the branch (a force-push of a rebase wasn't
-  permitted). AC7 applies to that pull request. This spec stays Active until it merges; amber-harbor-v9p6ri is Done.
+  permitted). AC7 applies to that pull request, jk09/ContractExpressions#6, whose first CI run was green (Debug and
+  Release, net8.0/net9.0/net10.0, docs check). This spec stays Active until it merges; amber-harbor-v9p6ri is Done.
 - **Analyzer scope (FR 2):** CCK0006 leaves out `[ContractInvariantMethod]` – ContractCheck ignores it, so defining
   `CONTRACTS_FULL` changes nothing. CCK0007 also reports `Contract.Requires<TException>` outside clauses in files
   without `CONTRACTS_FULL`: it isn't `[Conditional]` and terminates the process in any build. Beyond the table, the
