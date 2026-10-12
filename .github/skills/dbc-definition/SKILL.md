@@ -158,7 +158,7 @@ If project constraints require fewer files, still preserve the interface + imple
 3. Add contracts in the contract class constructor with `Dbc.Def(...)` only.
 4. Prefer preconditions for input validity, postconditions for return/state guarantees, and invariants for persistent object truths.
 5. Generate deterministic tests for success and failure paths of each defined contract.
-6. Generate FsCheck property tests using `ContractCheck.FsCheck.DbcPropertyTest.Check` (`CheckSequence` for stateful types).
+6. Generate FsCheck property tests using `ContractCheck.FsCheck.DbcPropertyTest.Check` (`CheckCalls` or `CheckSequence` for stateful types).
 
 ## Test Expectations
 - Include satisfied-path tests for each contracted member.
@@ -167,6 +167,7 @@ If project constraints require fewer files, still preserve the interface + imple
 - For creation-time invariant checks, assert method is `"<creation>"` when applicable.
 
 ## Notes
-- Start files that use `System.Diagnostics.Contracts` with `#define CONTRACTS_FULL`.
+- Start files that use `System.Diagnostics.Contracts` with `#define CONTRACTS_FULL` (the ContractCheck analyzer reports a missing one, CCK0006).
+- `out`/`ref` parameters: pass `Dbc.Out<T>.Value` / `Dbc.Ref<T>.Value` in the selector and read them in the clauses.
 - Keep contract constructors free of non-`Dbc.Def(...)` logic.
 - Prefer minimal, non-speculative code and align with existing project style.

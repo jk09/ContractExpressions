@@ -19,6 +19,11 @@ public Property Max_keeps_the_contracts() =>
 [Property]                                            // stateful: one proxy, a generated call log
 public Property Pushes_and_pops_keep_the_contracts(StackStep[] steps) =>
     DbcPropertyTest.CheckSequence(() => Dbc.Make<IStack>(new Stack()), steps.Select(s => (Action<IStack>)s.Apply));
+
+[Property]                                            // stateful without step code: calls of every member
+public Property Any_calls_keep_the_contracts() =>
+    DbcPropertyTest.CheckCalls(() => Dbc.Make<IStack>(new Stack()),
+        new CallOptions { ArbMap = ArbMap.Default.Merge<Generators>(), ExpectedExceptions = [typeof(InvalidOperationException)] });
 ```
 
 - `DbcPropertyTest.Check` / `CheckAsync` (ContractCheck.FsCheck): an entry-check failure discards the case; a
@@ -26,6 +31,12 @@ public Property Pushes_and_pops_keep_the_contracts(StackStep[] steps) =>
   an entry check is skipped and the sequence goes on; any other failure fails the case.
 - `Check` awaits whatever the call returns (`Task`, `ValueTask`, `ValueTask<T>`); `CheckAsync` takes `Task`-returning
   delegates, so `async` lambdas bind to it on every C# version.
+- `CheckCalls<T>` generates the sequence itself: methods, getters, setters and indexers of `T` and its base interfaces
+  with arguments from `CallOptions.ArbMap`; returned tasks are awaited; calls throwing a `CallOptions.ExpectedExceptions`
+  type count as normal (contract failures never do); `Exclude` drops members by name (indexers: `Item`). Members with
+  `out`/`ref`/pointer parameters, open generic methods and types without a generator are skipped –
+  `DbcPropertyTest.CallableMembers<T>(options)` lists the rest. FsCheck shrinks the sequence and the arguments; the
+  counterexample prints as `[Push("a"), Pop(), Pop()]`.
 - Settings: `[Property(MaxTest = 500, MaxRejected = 2000, Replay = "(seed,gamma)")]`; for a whole class
   `[Properties(Arbitrary = [typeof(Generators)], MaxTest = …)]`.
 - In a `[Fact]`: `Check.One(Config.QuickThrowOnFailure.WithMaxTest(200), property)` throws on falsification; the message
@@ -63,7 +74,7 @@ Measured with FsCheck 3.3.4 (size grows from 0 to 100 over a run):
 |---|---|---|
 | `string` | never `null`; `""` ~1–17% | null-rejecting preconditions are never exercised – use `Gen.OrNull()` or a `null` case in `Gen.Frequency` |
 | `int` | within ±size (≤ 100) | `int.MinValue`, `int.MaxValue`, overflow are never hit – use `IntWithMinMax` (~4.5% each) or `DoNotSize<int>` |
-| `float`/`double` | +∞ ~2.3%, −∞ ~1.8%, NaN ~2.2%, also `MaxValue`; never exactly `0` | edge values appear, but rarely – targeted generator for a deterministic test; `NormalFloat` for finite doubles; add `0` yourself |
+| `float`/`double` | +∞ ~2.3%, −∞ ~1.8%, NaN ~2.2%, also `MaxValue`; `0` rare | edge values appear, but rarely – targeted generator for a deterministic test; `NormalFloat` for finite doubles; add `0` yourself |
 | `decimal` | uniform in ±size, ~50% negative, never `0`, never a whole number | division by zero, zero amounts and integral values are never tested – add them with `Gen.Frequency`; `Gen.Choose` + scaling for money |
 | `T[]` | length 0..size; empty ~1–17% | for "empty" defects force it: `Gen.Frequency((1, Gen.Constant(Array.Empty<int>())), (3, …))` |
 

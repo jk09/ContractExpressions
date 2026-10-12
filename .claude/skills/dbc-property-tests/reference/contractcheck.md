@@ -7,7 +7,7 @@ checks them on every call. Full documentation: the repository README.
 ## Shape
 
 ```csharp
-#define CONTRACTS_FULL                      // first line of every file that calls Contract.* or uses [Pure]/[ContractOption]
+#define CONTRACTS_FULL                      // first line of every file that calls Contract.* or uses a contract attribute
 using System.Diagnostics.Contracts;
 using ContractCheck;
 
@@ -49,10 +49,18 @@ IStack stack = Dbc.Make<IStack>(new Stack());   // checks the invariants, then r
   contract-checked and don't recurse.
 - Generic interfaces: a generic contract class (`[ContractClass(typeof(FooContracts<>))]`) is closed over the
   interface's type arguments.
+- `out`/`ref` parameters: the selector passes a placeholder field, `static (IFoo x, string k) => x.TryGet(k, out
+  Dbc.Out<int>.Value)`, and clauses read it: `Contract.Ensures(!Contract.Result<bool>() || Dbc.Out<int>.Value >= 0)`.
+  `Dbc.Ref<T>.Value` is the value passed in in entry checks and inside `OldValue`, the value at return in
+  postconditions; `Dbc.Out<T>.Value` only exists in `Ensures`. `Value2`/`Value3` for more parameters of one type;
+  `Contract.ValueAtReturn(out Dbc.Out<int>.Value)` is a synonym. `in` parameters are ordinary lambda parameters.
+- `Dbc.Make(typeof(IFoo), target)` for an interface known at run time; `Dbc.HasContracts(typeof(IFoo))` tells whether
+  any contract class or clause applies.
 - The contract attributes are `[Conditional("CONTRACTS_FULL")]`: `[Pure]`, `[ContractOption]`, `[ContractRuntimeIgnored]`
   vanish from files without the `#define` (`[ContractClass]` survives in Debug builds only). `Dbc.Make` falls back to
   the class marked `[ContractClassFor(typeof(IFoo))]`, but `[Pure]` & co. are silently lost – define the symbol in
-  the interface's file too. Never define it project-wide (`Contract.Requires` in method bodies would `FailFast`).
+  the interface's file too. Never define it project-wide (`Contract.Requires` in method bodies would `FailFast`;
+  `Requires<TEx>` does even without it). The package's analyzer reports both (CCK0006 with a code fix, CCK0007).
 
 ## Clauses
 
@@ -76,7 +84,9 @@ IStack stack = Dbc.Make<IStack>(new Stack());   // checks the invariants, then r
 - Messages may be any string expression over the parameters; evaluated only on failure.
 - Definition errors (`InvalidOperationException` naming the clause): selector not an interface member, clause not a
   `Contract` call, `Result` outside `Ensures` or of the wrong type, `OldValue` outside postconditions or on a literal,
-  `ValueAtReturn`, `EndContractBlock`, non-invariant clause in the invariant form.
+  misused `out`/`ref` placeholders or `ValueAtReturn`, `EndContractBlock`, non-invariant clause in the invariant form.
+  With the ContractCheck package, the analyzer reports them at build time with the same texts (CCK0001–CCK0005), and
+  warns about preconditions added to inherited members through a derived interface (CCK0008).
 
 ## Failures
 
@@ -92,9 +102,11 @@ IStack stack = Dbc.Make<IStack>(new Stack());   // checks the invariants, then r
 - `[ContractOption("runtime", "checking", false)]` on the interface, a member or the assembly: no runtime checks.
 - `[ContractOption("contract", "inheritance", false)]` on an interface: base-interface contracts don't apply.
 - `[ContractRuntimeIgnored]` on a method or property: clauses that use it aren't checked at runtime.
+- `Dbc.CheckingLevel` / runtimeconfig `ContractCheck.CheckingLevel`: `Full` (default), `PreAndPost` (no invariants,
+  `Assert`, `Assume`), `Preconditions`, `ReleaseRequires` (`Requires<TEx>` only), `None`. Process-wide; property tests
+  need `Full`, so don't change it in test projects.
 
 ## Not supported
 
 - Classes (proxies are interface-only), static members, constructors (use invariants – checked by `Dbc.Make`).
-- Contracts on `ref`/`out` parameters (`ValueAtReturn`); such members still work through the proxy unchecked.
 - `Contract.EndContractBlock` / legacy if-then-throw blocks: write `Requires<TException>`.

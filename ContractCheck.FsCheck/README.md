@@ -22,6 +22,10 @@ public class AccountProperties
             {
                 if (op.Deposit) account.Deposit(op.Amount); else account.Withdraw(op.Amount);
             })));
+
+    [Property]
+    public Property Any_calls_keep_the_contracts() =>
+        DbcPropertyTest.CheckCalls(() => Dbc.Make<IAccount>(new Account(100m)));
 }
 ```
 
@@ -32,6 +36,14 @@ public class AccountProperties
 | Interface invariant fails in `Dbc.Make` | Property fails |
 | Any other exception | Property fails |
 
-API: `Check` (awaits whatever the call returns: `Task`, `ValueTask`, `ValueTask<T>`), `CheckAsync` (`Task`-returning delegates and `async` lambdas), `CheckSequence` / `CheckSequenceAsync` (one proxy, many operations; steps rejected by an entry check are skipped).
+API: `Check` (awaits whatever the call returns: `Task`, `ValueTask`, `ValueTask<T>`), `CheckAsync` (`Task`-returning delegates and `async` lambdas), `CheckSequence` / `CheckSequenceAsync` (one proxy, many operations; steps rejected by an entry check are skipped), `CheckCalls` (generates the operations itself).
+
+`CheckCalls<T>` calls every method, property getter and setter and indexer of `T` and its base interfaces in random
+sequences, with arguments from FsCheck; returned tasks are awaited. FsCheck shrinks the sequence and the arguments, and
+a counterexample reads like a call log: `[Credit(Infinity), Debit(Infinity)]`. `CallOptions` tunes it:
+`ArbMap = ArbMap.Default.Merge<Generators>()` for your generators, `ExpectedExceptions = [typeof(InvalidOperationException)]`
+for documented exceptions (contract failures never count as expected), `Exclude = ["Dispose"]` to leave members out.
+Members with `out`/`ref`/pointer parameters, open generic methods and argument types without a generator are skipped;
+`DbcPropertyTest.CallableMembers<T>()` lists the members it calls.
 
 If most generated inputs violate the preconditions, FsCheck gives up ("arguments exhausted"); constrain the generators instead, e.g. `PositiveInt`, `NonEmptyString`, `NonNull<T>` or `Gen.Choose`. FsCheck 3's defaults never generate `null` strings or `int.MinValue`: add edge values on purpose (`IntWithMinMax`, `Gen.OrNull`, `Gen.Frequency`).

@@ -1,5 +1,5 @@
 ---
-applyTo: "ContractCheck/**, ContractCheck.FsCheck/**, ContractCheck.Samples/**"
+applyTo: "ContractCheck/**, ContractCheck.FsCheck/**, ContractCheck.DependencyInjection/**, ContractCheck.Analyzers/**, ContractCheck.CodeFixes/**, ContractCheck.Samples/**"
 ---
 
 # ContractCheck – Design-by-Contract for .NET
@@ -15,8 +15,14 @@ at run time by a `System.Reflection.DispatchProxy` instead of IL rewriting. The 
 - `Dbc.Def(selector, clauses…)` – contracts for an interface member; `Dbc.Def(x => Contract.Invariant(…), …)` – interface invariants.
 - `Dbc.DefSetter(selector, clauses…)` – contracts for property and indexer setters (assigned `value` last).
 - `Dbc.Make<T>(target)` – a proxy of interface `T` that checks the contracts; checks the invariants before returning.
+  `Dbc.Make(Type, object)` and `Dbc.HasContracts(Type)` for interfaces known at run time.
+- `Dbc.Out<T>.Value` / `Dbc.Ref<T>.Value` – placeholders for `out`/`ref` parameters in selectors and clauses.
+- `Dbc.CheckingLevel` (`ContractCheckingLevel`, runtimeconfig `ContractCheck.CheckingLevel`) – which clause kinds are checked.
 - `ContractViolationException` (`Kind` is a `ContractFailureKind`, `Method`, `Condition`, …); `Requires<TEx>` throws `TEx`.
 - `ContractCheck.FsCheck.DbcPropertyTest` – FsCheck properties: precondition failures discard a case, other failures fail it.
+- `ContractCheck.DependencyInjection` – `services.AddContractChecks<T>()` / `AddContractChecks()` wrap registrations in proxies.
+- `ContractCheck.Analyzers` (in the ContractCheck package) – CCK0001–CCK0008: definition errors at compile time, the
+  `CONTRACTS_FULL` pitfalls, preconditions added to inherited members.
 
 ## Example (ContractCheck.Samples/BankAccount)
 
@@ -72,9 +78,12 @@ public Property Deposit_keeps_the_contracts(float deposit) =>
 ```
 
 `Check` / `CheckAsync` test one call per generated case; `CheckSequence` / `CheckSequenceAsync` run a generated sequence
-of calls on one proxy, so invariants are checked across state changes. See `ContractCheck.Samples.PropertyTests`.
+of calls on one proxy, so invariants are checked across state changes; `CheckCalls` generates the calls from the
+interface itself. See `ContractCheck.Samples.PropertyTests`.
 
 ## Rules for changes in these folders
 
 - Keep semantics aligned with CodeContracts and the spec's resolutions (README "Migration"); a behaviour change needs an ADR.
 - Every public behaviour has a test in `ContractCheck.Tests`; keep XML docs complete (warnings are errors).
+- Definition rules exist twice – at run time (`ContractCheck/Features/Definitions`) and in `ContractCheck.Analyzers` –
+  with the same messages; change both (`RuntimeAgreementTests` checks they agree).

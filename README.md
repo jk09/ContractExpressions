@@ -1,5 +1,7 @@
 # ContractCheck
 
+[![CI](https://github.com/jk09/ContractExpressions/actions/workflows/ci.yml/badge.svg)](https://github.com/jk09/ContractExpressions/actions/workflows/ci.yml)
+
 Design by Contract for .NET: preconditions, postconditions and invariants written with the familiar
 `System.Diagnostics.Contracts` API and checked at run time on every interface call – no IL rewriting, no build step.
 
@@ -17,9 +19,11 @@ account.Withdraw(500);
 - **Familiar** – `Requires`, `Requires<TException>`, `Ensures`, `EnsuresOnThrow`, `Invariant`, `Result`, `OldValue`,
   `ForAll`, `Exists`, `Assert`, `Assume`, with the semantics of the original CodeContracts.
 - **Runtime only** – a `DispatchProxy` checks each call; contracts are expression trees, validated and compiled once.
+- **Checked while you type** – the package's Roslyn analyzer reports invalid contracts and `CONTRACTS_FULL` pitfalls.
 - **Async-aware** – postconditions of `Task` and `ValueTask` members are checked when the task completes.
-- **Testable** – `ContractCheck.FsCheck` turns contracts into property-based tests, and a Claude Code skill infers
-  contracts and writes those tests for you.
+- **Tunable** – CodeContracts' checking levels, from `Full` down to `Preconditions` or `None`, set in runtimeconfig.
+- **Testable** – `ContractCheck.FsCheck` turns contracts into property-based tests, down to generated call sequences,
+  and a Claude Code skill infers contracts and writes those tests for you.
 
 Targets .NET 8, 9 and 10. MIT licensed.
 
@@ -29,6 +33,9 @@ Targets .NET 8, 9 and 10. MIT licensed.
 - [Getting started](#getting-started)
 - [Writing contracts](#writing-contracts)
 - [How contracts are checked](#how-contracts-are-checked)
+- [Checking levels](#checking-levels)
+- [Analyzer](#analyzer)
+- [Dependency injection](#dependency-injection)
 - [Coverage of System.Diagnostics.Contracts](#coverage-of-systemdiagnosticscontracts)
 - [Property-based testing with FsCheck](#property-based-testing-with-fscheck)
 - [Claude Code skill: infer contracts, verify them with property tests](#claude-code-skill-infer-contracts-verify-them-with-property-tests)
@@ -57,12 +64,15 @@ Contracts on an *interface* are a shared safety net: every implementation is che
 
 ### Install
 
-ContractCheck is not on nuget.org yet. Reference the projects from this repository (or `dotnet pack` them):
+```
+dotnet add package ContractCheck                        # the library and its analyzer
+dotnet add package ContractCheck.DependencyInjection    # optional: AddContractChecks for Microsoft.Extensions.DependencyInjection
+dotnet add package ContractCheck.FsCheck                # test projects: property-based tests
+```
 
-```
-dotnet add reference path/to/ContractCheck/ContractCheck.csproj
-dotnet add reference path/to/ContractCheck.FsCheck/ContractCheck.FsCheck.csproj   # test projects only
-```
+Until the first release is on nuget.org, reference the projects of this repository instead
+(`dotnet add reference path/to/ContractCheck/ContractCheck.csproj`, and for the analyzer a reference to
+`ContractCheck.Analyzers.csproj` with `OutputItemType="Analyzer" ReferenceOutputAssembly="false"`).
 
 ### Define the contract of an interface
 
@@ -108,9 +118,11 @@ one `Contract.*` call.
 `#define CONTRACTS_FULL` must open every file that calls `Contract.*` – the methods are `[Conditional("CONTRACTS_FULL")]`,
 and without the symbol the clause lambdas don't compile (CS0765). The contract attributes are conditional too: `[Pure]`,
 `[ContractOption]` and `[ContractRuntimeIgnored]` only survive in files that define the symbol, and `[ContractClass]`
-only there or in Debug builds. If a Release build dropped `[ContractClass]`, `Dbc.Make` finds the contract class through
+only there or in Debug builds – so define it in the interface's file as well; the [analyzer](#analyzer) warns (CCK0006)
+and adds the line for you. If a Release build dropped `[ContractClass]`, `Dbc.Make` finds the contract class through
 its `[ContractClassFor]`. Don't define `CONTRACTS_FULL` project-wide: without the old rewriter, `Contract.Requires`
-calls in ordinary method bodies would then stop the process (`Environment.FailFast`).
+calls in ordinary method bodies would then stop the process (`Environment.FailFast`), and `Contract.Requires<TException>`
+does so even without the symbol (CCK0007).
 
 ### Check an implementation
 
@@ -125,8 +137,10 @@ Dbc.Make<IAccount>(new BrokenAccount()).Withdraw(10);       // withdraws twice t
                             // Postcondition failed: a.Balance == Contract.OldValue(a.Balance) - amount (in IAccount.Withdraw)
 ```
 
-Wrap implementations where they are created – a factory, the DI container (`services.AddSingleton(sp =>
-Dbc.Make<IAccount>(new Account(100)))`) or a test – and callers keep using the interface.
+Wrap implementations where they are created – a factory, the DI container
+([`services.AddContractChecks()`](#dependency-injection)) or a test – and callers keep using the interface.
+`Dbc.Make(typeof(IAccount), new Account(100))` does the same for an interface known only at run time, and
+`Dbc.HasContracts(typeof(IAccount))` tells whether there is anything to check.
 
 ## Writing contracts
 
@@ -139,10 +153,30 @@ Dbc.Make<IAccount>(new Account(100)))`) or a test – and callers keep using the
 | indexer getter | `static (IFoo x, int i) => x[i]` | `static (IFoo x, int i) => Contract.Requires(i >= 0)` |
 | property setter | `Dbc.DefSetter(static (IFoo x) => x.Limit, …)` | `static (IFoo x, int value) => Contract.Requires(value >= 0)` |
 | indexer setter | `Dbc.DefSetter(static (IFoo x, string k) => x[k], …)` | `static (IFoo x, string k, string value) => …` |
+| `out`/`ref` parameters | `static (IFoo x, string k) => x.TryGet(k, out Dbc.Out<int>.Value)` | `static (IFoo x, string k) => …` – see below |
 
 `Dbc.Def` has overloads for members with 0–15 parameters, `DefSetter` for 0–14 index parameters. The selector must be
 a single call of an interface member with the lambda's parameters in order; anything else (nested calls, constants,
 static or extension methods) is rejected with an explanation. Several `Dbc.Def` calls for the same member add up.
+
+### `out` and `ref` parameters
+
+Expression-tree lambdas can't declare by-ref parameters, so the selector passes a placeholder field and the clauses read it:
+
+```csharp
+Dbc.Def(static (ICache c, string key) => c.TryGet(key, out Dbc.Out<int>.Value),
+    static (ICache c, string key) => Contract.Ensures(!Contract.Result<bool>() || Dbc.Out<int>.Value > 0));
+
+Dbc.Def(static (ICounter c, int step) => c.Bump(ref Dbc.Ref<int>.Value, step),
+    static (ICounter c, int step) => Contract.Requires(Dbc.Ref<int>.Value >= 0),          // the value passed in
+    static (ICounter c, int step) => Contract.Ensures(Dbc.Ref<int>.Value == Contract.OldValue(Dbc.Ref<int>.Value) + step));
+```
+
+- `Dbc.Out<T>.Value` stands for an `out` parameter of type `T`, `Dbc.Ref<T>.Value` for a `ref` parameter; use `Value2`
+  and `Value3` for more parameters of one type. `in` parameters take the lambda's own parameters, like any other.
+- A `ref` placeholder is the value passed in when read in entry checks or inside `OldValue`, and the value at return in
+  postconditions; an `out` placeholder only has a value in `Ensures`. `Contract.ValueAtReturn(out Dbc.Out<int>.Value)`
+  is accepted as a synonym, as in CodeContracts.
 
 ### Preconditions
 
@@ -211,13 +245,16 @@ class); contracts never leak to sibling interfaces. A generic interface may have
 - `[ContractOption("runtime", "checking", false)]` on an interface, a member or an assembly: no runtime checks.
 - `[ContractOption("contract", "inheritance", false)]` on an interface: base-interface contracts don't apply.
 - `[ContractRuntimeIgnored]` on a method or property: clauses that use it are not checked at run time.
+- `Dbc.CheckingLevel` or the runtimeconfig setting `ContractCheck.CheckingLevel`: which kinds of clauses are checked
+  at all – see [Checking levels](#checking-levels).
 
 ## How contracts are checked
 
 - **When contracts are defined.** `Dbc.Make<T>` runs the contract class of `T` and of each base interface once
   (thread-safe). Every clause is validated and compiled then: a selector that isn't an interface member, `Result` outside
-  `Ensures` or of the wrong type, `OldValue` outside a postcondition, `ValueAtReturn`, `EndContractBlock` … throw
-  `InvalidOperationException` naming the clause and the reason. A `Dbc.Def` call registers all its clauses or none.
+  `Ensures` or of the wrong type, `OldValue` outside a postcondition, `ValueAtReturn` without a placeholder,
+  `EndContractBlock` … throw `InvalidOperationException` naming the clause and the reason, at every checking level; the
+  [analyzer](#analyzer) reports the same mistakes at compile time. A `Dbc.Def` call registers all its clauses or none.
 - **Order of a call.** Entry checks (`Requires`, `Requires<TException>`, `Assert`, `Assume`, in definition order) → old
   values → the target → `EnsuresOnThrow` if it threw → `Ensures` → member invariants → interface invariants.
 - **Failures.** Every failure raises `Contract.ContractFailed`. If a handler calls `e.SetHandled()`, the call continues;
@@ -227,6 +264,63 @@ class); contracts never leak to sibling interfaces. A generic interface may have
 - **Messages** follow the .NET format plus the member: `Precondition failed: amount <= a.Balance  insufficient funds
   (in IAccount.Withdraw)`. Conditions are printed from the expression tree, so they read like the source.
 - **The target** is called with its exceptions and stack traces intact; members without contracts are forwarded.
+
+## Checking levels
+
+CodeContracts' runtime checking levels choose which clauses the proxies check – for example only preconditions in
+production:
+
+| `ContractCheckingLevel` | Checks |
+|---|---|
+| `Full` (default) | everything |
+| `PreAndPost` | `Requires`, `Requires<TException>`, `Ensures`, `EnsuresOnThrow` – no invariants, `Assert` or `Assume` |
+| `Preconditions` | `Requires`, `Requires<TException>` |
+| `ReleaseRequires` | `Requires<TException>` only |
+| `None` | nothing: calls are forwarded |
+
+Set it in the app's project file – it lands in `<app>.runtimeconfig.json`, where operators can change it without a
+rebuild:
+
+```xml
+<ItemGroup>
+  <RuntimeHostConfigurationOption Include="ContractCheck.CheckingLevel" Value="Preconditions" />
+</ItemGroup>
+```
+
+or in code, `Dbc.CheckingLevel = ContractCheckingLevel.Preconditions;`, which applies from the next call of every proxy.
+Skipped clauses cost nothing – no old values are captured while postconditions are off – and definitions are validated
+at every level. An unknown level name in runtimeconfig makes the first `Dbc.Make` throw, naming the value.
+
+## Analyzer
+
+The `ContractCheck` package includes a Roslyn analyzer (for .NET 8 SDKs and newer) that applies the rules of `Dbc.Make`
+while you type and catches the `CONTRACTS_FULL` pitfalls:
+
+| ID | Severity | Reports |
+|---|---|---|
+| CCK0001 | Error | A selector `Dbc.Make` would reject: not an interface, not a member called on the first parameter, arguments that aren't the lambda's parameters in order, a by-ref parameter without its `Dbc.Out`/`Dbc.Ref` placeholder, `DefSetter` without a setter |
+| CCK0002 | Error | A clause that isn't one `Contract.Requires`/`Ensures`/`EnsuresOnThrow`/`Invariant`/`Assert`/`Assume` call; another kind in the interface-invariant form; `Requires<TException>` with an exception it can't create |
+| CCK0003 | Error | `Contract.Result<T>()` outside `Ensures`, on a `void` member, of the wrong type, or both the task and its awaited result in one clause |
+| CCK0004 | Error | `Contract.OldValue` outside postconditions, of a literal, of `Result`, or of a lambda variable other than a `ForAll`/`Exists` index |
+| CCK0005 | Error | An `out`/`ref` placeholder read where it has no value or that the selector doesn't pass; `ValueAtReturn` misuse; `EndContractBlock` as a clause |
+| CCK0006 | Warning | `[Pure]`, `[ContractOption]`, `[ContractRuntimeIgnored]`, `[ContractClass]` or `[ContractClassFor]` in a file without `#define CONTRACTS_FULL`, where the compiler drops it. Code fix: add the define |
+| CCK0007 | Error | `Contract.Requires`, `Ensures`, `EnsuresOnThrow` or `Invariant` in ordinary code of a file that defines `CONTRACTS_FULL`, and `Requires<TException>` outside a clause anywhere: without the CodeContracts rewriter they terminate the process |
+| CCK0008 | Warning | A precondition (`Requires`, `Assert`, `Assume`) defined through a derived interface for an inherited member: code that holds the base interface can't know it (Liskov substitution; CodeContracts error CC1033) |
+
+The errors are the exceptions `Dbc.Make` would throw, with the same texts, so a contract class that compiles cleanly
+also loads. Change severities in `.editorconfig` as usual, e.g. `dotnet_diagnostic.CCK0008.severity = none`.
+
+## Dependency injection
+
+`ContractCheck.DependencyInjection` wraps existing Microsoft.Extensions.DependencyInjection registrations in proxies:
+
+```csharp
+services.AddScoped<IAccount, Account>();
+services.AddContractChecks<IAccount>();   // or services.AddContractChecks(): every registered interface with contracts
+```
+
+Lifetimes and keys stay; type, factory, instance and keyed registrations are wrapped, and the container still disposes
+each implementation exactly once. Details in the [package README](ContractCheck.DependencyInjection/README.md).
 
 ## Coverage of System.Diagnostics.Contracts
 
@@ -246,7 +340,8 @@ class); contracts never leak to sibling interfaces. A generic interface may have
 | `[ContractClass]`, `[ContractClassFor]` | Contract-class discovery and validation, generic contract classes |
 | `[Pure]` | Pure members skip the interface-invariant check (property getters always do) |
 | `[ContractRuntimeIgnored]`, `[ContractOption]` | See [Switching checks off](#switching-checks-off) |
-| `ValueAtReturn<T>(out T)`, `EndContractBlock()` | Not supported (contracts on `ref`/`out` parameters); rejected with an explanation |
+| `ValueAtReturn<T>(out T)` | In `Ensures`, on an [`out`/`ref` placeholder](#out-and-ref-parameters) |
+| `EndContractBlock()` | Rejected with an explanation: write `Requires<TException>` |
 | `[ContractInvariantMethod]` | Not needed: invariants are `Dbc.Def(x => Contract.Invariant(…))` |
 | `[ContractVerification]`, `[ContractPublicPropertyName]`, `[ContractArgumentValidator]`, `[ContractAbbreviator]` | Static-checker and rewriter attributes – no runtime meaning |
 
@@ -263,6 +358,10 @@ public Property Withdraw_keeps_the_contracts(decimal amount) =>
 [Property(Arbitrary = [typeof(Generators)])]
 public Property Deposits_and_withdrawals_keep_the_contracts(AccountStep[] steps) =>
     DbcPropertyTest.CheckSequence(() => Dbc.Make<IAccount>(new Account(100)), steps.Select(s => (Action<IAccount>)s.Apply));
+
+[Property]
+public Property Any_calls_keep_the_contracts() =>
+    DbcPropertyTest.CheckCalls(() => Dbc.Make<IAccount>(new Account(100)));
 ```
 
 - An entry-check failure (precondition, `Assert`, `Assume`) discards the generated case – the input was outside the
@@ -270,6 +369,9 @@ public Property Deposits_and_withdrawals_keep_the_contracts(AccountStep[] steps)
   input to a minimal counterexample.
 - `Check` awaits returned tasks; `CheckAsync` takes `async` lambdas. `CheckSequence` / `CheckSequenceAsync` run a
   generated sequence of calls on one proxy, so invariants are checked across state changes (rejected steps are skipped).
+- `CheckCalls` generates the sequences itself: random calls of every method, property and indexer of the interface,
+  with arguments from FsCheck, shrunk to a call log such as `[Credit(Infinity), Debit(Infinity)]`. `CallOptions` adds
+  generators (`ArbMap`), documented exceptions (`ExpectedExceptions`) and exclusions (`Exclude`).
 
 [`ContractCheck.Samples.PropertyTests`](ContractCheck.Samples.PropertyTests) shows generators, sequences, async members,
 and four contract defects in the sample programs that the properties find.
@@ -294,10 +396,11 @@ Copy the skill folder (and the ContractCheck projects or packages) into your rep
 
 - **Interfaces only.** `Dbc.Make` creates interface proxies; classes, static members and constructors can't carry
   contracts (constructor rules become invariants, which `Dbc.Make` checks). Calls that bypass the proxy aren't checked.
-- **No contracts on `ref`/`out` parameters.** Expression-tree lambdas can't take them; such members still work
-  through the proxy, unchecked.
 - **Reflection-based.** `DispatchProxy` generates code at run time, so Native AOT is not supported; each checked call
-  costs a reflection dispatch plus the compiled clauses.
+  costs a reflection dispatch plus the compiled clauses. Source-generated proxies are planned
+  ([spec](docs/specs/quartz-willow-x7kgtw.md)).
+- **Process-wide checking level.** One level for all proxies; `[ContractOption]` switches single interfaces or
+  members off.
 - **One contract per interface, not per method body.** Contracts describe the interface every implementation shares.
 
 ## Migrating from ContractExpressions and ContractExpressions4
@@ -328,22 +431,30 @@ ContractCheck replaces both earlier projects of this repository. Rename the name
 |---|---|
 | `ContractCheck/` | The library; `Features/Definitions`, `Features/Enforcement`, `Features/Failures` ([index](docs/features.md)) |
 | `ContractCheck.FsCheck/` | `DbcPropertyTest` for FsCheck |
+| `ContractCheck.DependencyInjection/` | `AddContractChecks` for Microsoft.Extensions.DependencyInjection |
+| `ContractCheck.Analyzers/`, `ContractCheck.CodeFixes/` | The Roslyn analyzer and its code fix, packed into the ContractCheck package |
 | `ContractCheck.Samples/` | The CodeContracts and ContractExpressions4 demo programs, ported to ContractCheck |
-| `ContractCheck.Tests/` | xUnit v3 suite: the API, the legacy test ports, both former projects' suites |
+| `ContractCheck.Tests/` | xUnit v3 suite: the API, the analyzer, the legacy test ports, both former projects' suites |
 | `ContractCheck.Samples.PropertyTests/` | Property tests of the samples, created by the skill's init script |
 | `CodeContracts/` | Submodule: Microsoft's original CodeContracts, the reference for semantics |
 | `docs/` | Specs, ADRs, feature index |
-| `.claude/` | Claude Code skills and hooks; `.github/` has the GitHub Copilot equivalents |
+| `.claude/` | Claude Code skills and hooks; `.github/` has the GitHub Copilot equivalents and the workflows |
 
 ## Building and testing
 
 Requires the .NET 10 SDK (`global.json`); the libraries target .NET 8, 9 and 10. A dev container is included.
 
 ```
-git submodule update --init      # optional: the CodeContracts reference sources
+git submodule update --init                                     # optional: the CodeContracts reference sources
 dotnet build ContractExpressions.sln
-dotnet test ContractExpressions.sln
+dotnet test ContractExpressions.sln                             # tests on .NET 10
+dotnet test ContractExpressions.sln -p:TestAllFrameworks=true   # on .NET 8, 9 and 10 (needs those runtimes), as CI does
 ```
+
+[CI](.github/workflows/ci.yml) builds and tests every pull request in Debug and Release on .NET 8, 9 and 10 and packs the
+packages. Pushing a tag `vX.Y.Z` publishes `ContractCheck`, `ContractCheck.FsCheck` and
+`ContractCheck.DependencyInjection` X.Y.Z to nuget.org ([release workflow](.github/workflows/release.yml), repository
+secret `NUGET_API_KEY`).
 
 ## Contributing
 

@@ -27,7 +27,7 @@ Property-based tests use the `ContractCheck.FsCheck` library (project reference 
   - Discards the test case if a precondition (also `Requires<TException>`), `Assert` or `Assume` fails (inconclusive, not a failure).
   - Fails if a postcondition or invariant is violated after the method call, or the call throws anything else.
   - Passes otherwise. Returned tasks are awaited.
-- `DbcPropertyTest.CheckAsync(...)` for async members; `CheckSequence(...)` / `CheckSequenceAsync(...)` for generated call sequences on one proxy.
+- `DbcPropertyTest.CheckAsync(...)` for async members; `CheckSequence(...)` / `CheckSequenceAsync(...)` for generated call sequences on one proxy; `CheckCalls(proxyFactory, options)` generates random calls of every member itself.
 
 ## Contract definition pattern
 

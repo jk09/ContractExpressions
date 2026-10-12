@@ -11,9 +11,9 @@
 | **Owner** | jk09 |
 | **Reviewers** | jk09 |
 | **Created on** | 2026-10-11 18:22 +00:00 |
-| **Last updated** | 2026-10-11 18:25 +00:00 |
+| **Last updated** | 2026-10-12 02:10 +00:00 |
 | **Affected features** | `ContractCheck/Features/Definitions` (ref/out placeholders, `Dbc.HasContracts`), `ContractCheck/Features/Enforcement` (checking levels, non-generic `Dbc.Make`, by-ref values); new projects `ContractCheck.Analyzers`, `ContractCheck.DependencyInjection`; `ContractCheck.FsCheck` (generated call sequences); `.github/workflows` (new) |
-| **Target release** | ContractCheck 0.1.0 (first release, same PR as amber-harbor-v9p6ri: jk09/ContractExpressions#5) |
+| **Target release** | ContractCheck 0.1.0 (first release). FR 4–7, 11 and 15–17 merged with jk09/ContractExpressions#5; the rest follows in a second pull request from the same branch |
 | **Related links** | amber-harbor-v9p6ri (fusion spec); quartz-willow-x7kgtw (source-generated proxies, later) |
 
 ## 2. Summary
@@ -135,17 +135,17 @@
 
 ## 11. Acceptance Criteria
 
-- [ ] AC1 `ContractCheck.nupkg` contains `analyzers/dotnet/cs/ContractCheck.Analyzers.dll`; the samples build with the analyzer and get no diagnostics.
-- [ ] AC2 Each diagnostic CCK0001–CCK0008 has tests that report it on a bad snippet and stay silent on the corresponding valid snippet; the CCK0006 code fix inserts `#define CONTRACTS_FULL`.
-- [ ] AC3 Tests show each checking level runs exactly its clause kinds (incl. creation invariants, old values, async deferral), the runtimeconfig switch sets the initial level, and an unknown level name fails clearly.
-- [ ] AC4 CCK0008 fires for a `Requires` defined through a derived interface on an inherited member and not for the base interface's own contract or the derived interface's own members.
-- [ ] AC5 DI tests: transient/scoped/singleton, type/factory/instance and keyed registrations are wrapped; implementations are still disposed by the container; double registration doesn't double-wrap; errors for missing registrations and non-interfaces; `AddContractChecks()` wraps only interfaces with contracts.
-- [ ] AC6 `Dbc.Make(Type, object)` and `Dbc.HasContracts(Type)` are covered by tests.
+- [x] AC1 `ContractCheck.nupkg` contains `analyzers/dotnet/cs/ContractCheck.Analyzers.dll`; the samples build with the analyzer and get no diagnostics.
+- [x] AC2 Each diagnostic CCK0001–CCK0008 has tests that report it on a bad snippet and stay silent on the corresponding valid snippet; the CCK0006 code fix inserts `#define CONTRACTS_FULL`.
+- [x] AC3 Tests show each checking level runs exactly its clause kinds (incl. creation invariants, old values, async deferral), the runtimeconfig switch sets the initial level, and an unknown level name fails clearly.
+- [x] AC4 CCK0008 fires for a `Requires` defined through a derived interface on an inherited member and not for the base interface's own contract or the derived interface's own members.
+- [x] AC5 DI tests: transient/scoped/singleton, type/factory/instance and keyed registrations are wrapped; implementations are still disposed by the container; double registration doesn't double-wrap; errors for missing registrations and non-interfaces; `AddContractChecks()` wraps only interfaces with contracts.
+- [x] AC6 `Dbc.Make(Type, object)` and `Dbc.HasContracts(Type)` are covered by tests.
 - [ ] AC7 `ci.yml` and `release.yml` exist; CI on PR #5 is green (Debug and Release, net8.0/net9.0/net10.0 tests).
-- [ ] AC8 ref/out: tests for out postconditions, ref entry/exit/old values, `ValueAtReturn`, two same-typed out parameters, `in` parameters, and every definition error in FR 17.
-- [ ] AC9 `CheckCalls` tests: finds an invariant broken by a call sequence, skips rejected calls, honours `ExpectedExceptions` and `Exclude`, awaits async members, leaves out unsupported members, prints a readable call log.
-- [ ] AC10 `dotnet build` with zero warnings and `dotnet test` green in Debug and Release.
-- [ ] AC11 README, package READMEs, skill references, feature READMEs and ADRs 0006+ updated; `docs/features.md` regenerated.
+- [x] AC8 ref/out: tests for out postconditions, ref entry/exit/old values, `ValueAtReturn`, two same-typed out parameters, `in` parameters, and every definition error in FR 17.
+- [x] AC9 `CheckCalls` tests: finds an invariant broken by a call sequence, skips rejected calls, honours `ExpectedExceptions` and `Exclude`, awaits async members, leaves out unsupported members, prints a readable call log.
+- [x] AC10 `dotnet build` with zero warnings and `dotnet test` green in Debug and Release.
+- [x] AC11 README, package READMEs, skill references, feature READMEs and ADRs 0006+ updated; `docs/features.md` regenerated.
 
 ## 12. Testing / Verification
 
@@ -160,4 +160,29 @@
 
 ## 14. Changes during implementation
 
-- _None yet._
+- **Delivery:** the owner merged PR #5 on 2026-10-11 at d2d2dc0 (checking levels, `Dbc.Make(Type, object)` /
+  `Dbc.HasContracts`, ref/out placeholders). `CheckCalls`, the DI package, the analyzer and CI were pushed after the
+  merge and go into a second pull request; main was merged into the branch (a force-push of a rebase wasn't
+  permitted). AC7 applies to that pull request. This spec stays Active until it merges; amber-harbor-v9p6ri is Done.
+- **Analyzer scope (FR 2):** CCK0006 leaves out `[ContractInvariantMethod]` – ContractCheck ignores it, so defining
+  `CONTRACTS_FULL` changes nothing. CCK0007 also reports `Contract.Requires<TException>` outside clauses in files
+  without `CONTRACTS_FULL`: it isn't `[Conditional]` and terminates the process in any build. Beyond the table, the
+  analyzer reports `Requires<TException>` with an exception the run time can't create (CCK0002), a clause reading both
+  a task and its awaited result (CCK0003), `OldValue` of lambda variables other than a `ForAll`/`Exists` index
+  (CCK0004) and every placeholder misuse of FR 17 (CCK0005) – all with the run-time texts.
+- **Analyzer vs. run time (FR 3):** `RuntimeAgreementTests` runs the analyzers on ContractCheck.Tests' own sources and
+  requires errors exactly where the suite expects `Dbc.Def` to throw (warnings: CCK0008 only). The analyzer runs in
+  the projects that define contracts (ContractCheck.Samples, ContractCheck.Samples.PropertyTests); the libraries define
+  none. The sample interface files now `#define CONTRACTS_FULL`, so `[ContractClass]` survives Release builds.
+- **Packaging:** ContractCheck.FsCheck and ContractCheck.DependencyInjection reference ContractCheck with
+  `PrivateAssets="none"`, so the analyzer also reaches projects that only install them.
+- **DI (FR 9):** the original registration moves to a private key only for non-disposable interfaces. For disposable
+  interfaces (the proxy forwards `Dispose`) and `AnyKey` registrations the decorating factory creates the
+  implementation itself, and instance registrations are wrapped at once – each implementation is disposed exactly once.
+- **Checking levels (FR 5):** setting an undefined `ContractCheckingLevel` value throws `ArgumentOutOfRangeException`.
+- **CheckCalls (FR 18–19):** also public: `DbcPropertyTest.CallableMembers<T>(options)` (the members it calls) and
+  `GeneratedCall` (the counterexample values).
+- **CI (FR 12–14):** `Directory.Build.props` defines `LibraryTargetFrameworks` and `TestTargetFrameworks`
+  (`TestAllFrameworks=true` → net8.0;net9.0;net10.0). The session hooks (`active-spec.ps1`, `check-done.ps1`) now handle
+  several active specs; the CI docs job runs `check-done.ps1 -Base origin/<base>`.
+- **Docs:** the FsCheck reference no longer claims floats are never exactly 0 (`CheckCalls` produced 0 and -0).
