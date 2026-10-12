@@ -1,6 +1,6 @@
 # 0008. Decorate existing dependency-injection registrations
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-12
 - Features: –
 - Spec: canyon-tundra-ymf1vj

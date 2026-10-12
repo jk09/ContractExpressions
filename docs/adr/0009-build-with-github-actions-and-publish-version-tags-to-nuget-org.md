@@ -1,6 +1,6 @@
 # 0009. Build with GitHub Actions and publish version tags to nuget.org
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-12
 - Features: –
 - Spec: canyon-tundra-ymf1vj

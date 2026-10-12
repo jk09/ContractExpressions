@@ -1,6 +1,6 @@
 # 0006. Ship a Roslyn analyzer inside the ContractCheck package
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-12
 - Features: Definitions
 - Spec: canyon-tundra-ymf1vj

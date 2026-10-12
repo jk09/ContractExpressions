@@ -1,6 +1,6 @@
 # 0007. Make the checking level process-wide, with CodeContracts' level names
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-12
 - Features: Enforcement
 - Spec: canyon-tundra-ymf1vj

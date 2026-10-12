@@ -1,6 +1,6 @@
 # 0010. Express out and ref parameters with placeholder fields
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-12
 - Features: Definitions, Enforcement
 - Spec: canyon-tundra-ymf1vj
