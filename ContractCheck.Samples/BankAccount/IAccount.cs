@@ -1,3 +1,5 @@
+#define CONTRACTS_FULL
+
 using System.Diagnostics.Contracts;
 
 namespace ContractCheck.Samples.BankAccount;

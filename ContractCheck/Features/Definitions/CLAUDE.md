@@ -1,3 +1,4 @@
 - `Dbc.Def.cs` and `Dbc.DefSetter.cs` are uniform overload lists that differ only in arity (0–15 is the maximum `Action`/`Func` arity allows). Change all overloads together; `DefOverloadArityTests` calls every one.
 - Files with `Contract.*` inside lambdas need `#define CONTRACTS_FULL`; without it the compiler drops the calls (CS0765 in expression trees). The contract attributes are conditional too (`[ContractClass]`: `CONTRACTS_FULL` or `DEBUG`), so test the samples in Release as well.
 - New validation rules throw through `DefinitionErrors.Create` so the message names the interface and the offending clause.
+- Mirror every new or changed rule in `ContractCheck.Analyzers/ContractDefinitionAnalyzer.cs` with the same message text; `RuntimeAgreementTests` fails when the analyzer misses a rejected definition or reports an accepted one.

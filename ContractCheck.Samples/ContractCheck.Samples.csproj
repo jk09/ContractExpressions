@@ -2,7 +2,7 @@
 
   <!-- The CodeContracts demo programs (CodeContracts/Demo) and the ContractExpressions4 demos ported to ContractCheck, plus an async sample; used by the tests and the README. -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>$(TestTargetFrameworks)</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ContractCheck\ContractCheck.csproj" />
+    <ProjectReference Include="..\ContractCheck.Analyzers\ContractCheck.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

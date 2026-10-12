@@ -95,13 +95,19 @@ Conventions (as in `ContractCheck.Samples` in the ContractCheck repository):
 - `Foo.Contracts.cs`: `[ContractClassFor(typeof(IFoo))] internal sealed class FooContracts` whose constructor calls
   `Dbc.Def` once per member, with `static` lambdas whose parameter names match the member's.
 - `#define CONTRACTS_FULL` as the first line of every file that calls `Contract.*` (without it the clause lambdas fail
-  with CS0765) and of the interface's file (`[ContractClass]`, `[Pure]` are conditional too). Never project-wide.
+  with CS0765) and of the interface's file (`[ContractClass]`, `[Pure]` are conditional too). Never project-wide. The
+  ContractCheck analyzer flags both mistakes (CCK0006, CCK0007).
 - Append to an existing contract class; never rewrite existing `Dbc.Def` calls. A new clause for a member that already
   has one goes into an additional `Dbc.Def` call for that member (both apply).
 - Setters and indexer setters: `Dbc.DefSetter`. Interface invariants: `Dbc.Def(static (IFoo x) => Contract.Invariant(…), …)`.
 - Clauses run against the implementation, not the proxy: members they call are not checked and don't recurse.
-- Building doesn't validate clauses – `Dbc.Make` does. Run the first property right away (step 6) and fix definition
-  errors (`InvalidOperationException` naming the clause) in the clauses you wrote.
+- `out`/`ref` parameters: pass `Dbc.Out<T>.Value` / `Dbc.Ref<T>.Value` in the selector and read the same field in the
+  clauses (`Value2`, `Value3` for more of one type) – see the reference.
+- With the ContractCheck package, its analyzer reports invalid selectors and clauses at build time (CCK0001–CCK0005,
+  with the run-time messages) and warns about preconditions added to inherited members (CCK0008 – don't add those);
+  with only a project reference to `ContractCheck.csproj`, `Dbc.Make` is the first to validate. Either way, run the
+  first property right away (step 6) and fix definition errors (`InvalidOperationException` naming the clause) in the
+  clauses you wrote.
 
 ## Step 5 – Write the properties
 
@@ -112,9 +118,12 @@ In `<Project>.PropertyTests`: `FooProperties.cs` for `IFoo`; generators plus set
   a fresh object makes most properties trivial. Arguments that must fit each other or the state (prices covering the
   cart's items) come from one generated record with its own shrinker. `CheckAsync` for `Task` members and `async`
   lambdas; `Check` awaits returned tasks and `ValueTask`s too.
-- **Sequences.** One per stateful interface: `CheckSequence` / `CheckSequenceAsync` over an array of step records
-  (`record FooStep(…) { void Apply(IFoo foo); override ToString() }`), so invariants are checked across state changes
-  and counterexamples read like a call log. A step rejected by an entry check is skipped; the sequence goes on.
+- **Sequences.** One per stateful interface. Start with `DbcPropertyTest.CheckCalls(() => Dbc.Make<IFoo>(BuildFoo()))`:
+  random call sequences over every member with FsCheck's generators, no step code; `CallOptions` adds generators
+  (`ArbMap`), documented exceptions (`ExpectedExceptions`) and exclusions. Where arguments must fit the state, add
+  `CheckSequence` / `CheckSequenceAsync` over step records (`record FooStep(…) { void Apply(IFoo foo); override
+  ToString() }`). Either way invariants are checked across state changes, counterexamples read like a call log, and a
+  call rejected by an entry check is skipped while the sequence goes on.
 - **Outcomes.** In `Check`/`CheckAsync` an entry-check failure discards the case; a postcondition, invariant or any
   other exception fails it. Documented exceptions (e.g. `InvalidOperationException` "stock is short") are caught inside
   the step, after the proxy has checked `EnsuresOnThrow` – catch only the documented type, and never a type that typed
@@ -122,8 +131,8 @@ In `<Project>.PropertyTests`: `FooProperties.cs` for `IFoo`; generators plus set
 - **One finding must not hide another.** Split properties by input class (`Total_with_priced_items`,
   `Total_with_unpriced_items`) and keep single-call properties next to the sequence, so a failure in one class
   doesn't mask others.
-- **Generators.** FsCheck's defaults never produce `null` strings, `0` or whole `decimal`s/`double`s, or `int`s beyond
-  ±size (no `int.MinValue`); floats are ±∞/NaN only ~2% each. Add edge values on purpose (`IntWithMinMax`,
+- **Generators.** FsCheck's defaults never produce `null` strings, `0` or whole `decimal`s, or `int`s beyond
+  ±size (no `int.MinValue`); floats are ±∞/NaN only ~2% each and rarely `0`. Add edge values on purpose (`IntWithMinMax`,
   `Gen.Frequency`, `Gen.OrNull`) – see the reference. Keep most cases inside the preconditions, or the property
   exhausts its discards (*Arguments exhausted*). With nullable enabled, pass generated nulls as `value!`.
 - Names: `<Member>_keeps_the_contracts`, `…_at_the_extremes`, `<Actions>_keep_the_contracts` for sequences.

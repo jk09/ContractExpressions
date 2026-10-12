@@ -26,6 +26,14 @@ public class SimpleAccountProperties
             steps.Select(step => (Action<ISimpleAccount>)step.Apply));
 
     /// <summary>
+    /// The same known defect, found by calls generated from the interface alone – FsCheck shrinks it to
+    /// <c>[Credit(Infinity); Debit(Infinity)]</c>. 1000 cases, because a single 100-case run misses it about one time in seven.
+    /// </summary>
+    [Fact]
+    public void Known_defect_random_calls_find_the_infinite_amounts_on_their_own() =>
+        PropertyAssert.Falsified(DbcPropertyTest.CheckCalls(NewAccount), "Postcondition failed: x.Balance ==", maxTest: 1000);
+
+    /// <summary>
     /// Known defect: the preconditions admit infinite amounts. <c>Credit(∞)</c> makes the balance ∞, and <c>Debit(∞)</c>
     /// (allowed: ∞ ≤ ∞) leaves <c>NaN</c>, so the <c>Debit</c> postcondition fails. FsCheck's own floats are ±∞ or NaN only
     /// about 6% of the time, so this property uses an edge-value generator. Fix: <c>Contract.Requires(float.IsFinite(amount))</c>

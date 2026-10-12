@@ -35,6 +35,11 @@ public class NonNullStackProperties
             },
             stack => stack.UpdateAt(0, value.Get));
 
+    /// <summary>Random calls of every member, generated from the interface (no step records): rejected calls are skipped.</summary>
+    [Property]
+    public Property Any_calls_keep_the_contracts() =>
+        DbcPropertyTest.CheckCalls(() => Dbc.Make<INonNullStackWithUpdates<string>>(new NonNullStackWithUpdates<string>(0)));
+
     /// <summary>Null values, pops of an empty stack and out-of-range updates are rejected by preconditions and skipped.</summary>
     [Property]
     public Property Pushes_pops_and_updates_keep_the_contracts(StackStep[] steps) =>

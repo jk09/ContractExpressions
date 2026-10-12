@@ -17,6 +17,6 @@ property, so the suite stays green and the defect stays visible:
 | Interface | Defect | Found by |
 |---|---|---|
 | `IAccount` | `Withdraw` admits withdrawing everything available, which breaks the strict invariant `Amount > -OverdraftLimit` | any valid account + full withdrawal |
-| `ISimpleAccount` | preconditions admit `∞`; `Credit(∞)` then `Debit(∞)` leaves `NaN` | edge-value generator |
+| `ISimpleAccount` | preconditions admit `∞`; `Credit(∞)` then `Debit(∞)` leaves `NaN` | edge-value generator; also `DbcPropertyTest.CheckCalls` with no custom generator |
 | `IMaxUtils` | `Max` of an empty array breaks the `Exists` postcondition | arrays, one in four empty |
 | `IBinaryOperation` (`IntDiv`) | division by zero passes every contract check, then throws | divisors −2…2 |

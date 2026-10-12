@@ -6,12 +6,12 @@
 | --- | --- |
 | **Feature name** | ContractCheck – unified Design-by-Contract library |
 | **Spec ID** | amber-harbor-v9p6ri |
-| **Status** | Active |
+| **Status** | Done |
 | **Author** | Claude (Claude Code session for jk09) |
 | **Owner** | jk09 |
 | **Reviewers** | jk09 |
 | **Created on** | 2026-10-11 12:05 +00:00 |
-| **Last updated** | 2026-10-11 18:17 +00:00 |
+| **Last updated** | 2026-10-12 02:10 +00:00 |
 | **Affected features** | `ContractCheck/Features/Definitions`, `ContractCheck/Features/Enforcement`, `ContractCheck/Features/Failures` (all new); removed projects: `ContractExpressions`, `ContractExpressions4`, `ContractExpressions4.Check`, `MyTool.Agent` (+ their test projects) |
 | **Target release** | ContractCheck 0.1.0 |
 | **Related links** | Legacy reference: `CodeContracts` submodule (Foxtrot rewriter, `Foxtrot/Tests`, `Demo`) |
@@ -226,3 +226,5 @@ Behaviour both projects already share (kept): interface-only proxies, `[Contract
 - **Repository:** `plans/Plan_Agentic_Dbc_Contract_Generation.md` (described the removed MyTool.Agent) was deleted at the
   owner's request; `dotnet/runfile-discovery/*` (tracked tool caches) was left untouched.
 - **ADRs:** 0001–0005 were drafted as Proposed and accepted by the owner on 2026-10-11.
+- **Done:** merged with jk09/ContractExpressions#5 on 2026-10-11 (merge commit 2e1a463); follow-up improvements are
+  specified in canyon-tundra-ymf1vj and quartz-willow-x7kgtw.

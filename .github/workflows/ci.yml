@@ -1,0 +1,80 @@
+# Builds and tests every push to main and every pull request on .NET 8, 9 and 10, in Debug and Release, and packs the
+# NuGet packages. Pull requests also run the documentation check the Claude Code Stop hook runs locally.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.configuration }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore ContractExpressions.sln -p:TestAllFrameworks=true
+
+      - name: Build
+        run: dotnet build ContractExpressions.sln -c ${{ matrix.configuration }} --no-restore -p:TestAllFrameworks=true
+
+      - name: Test (net8.0, net9.0, net10.0)
+        run: >-
+          dotnet test ContractExpressions.sln -c ${{ matrix.configuration }} --no-build -p:TestAllFrameworks=true
+          --logger trx --results-directory TestResults
+
+      - name: Pack
+        run: dotnet pack ContractExpressions.sln -c ${{ matrix.configuration }} --no-build -p:TestAllFrameworks=true -o artifacts
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.configuration }}
+          path: artifacts/
+          if-no-files-found: error
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.configuration }}
+          path: TestResults/
+          if-no-files-found: ignore
+
+  docs:
+    name: Spec and feature docs updated
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check docs against the base branch
+        shell: pwsh
+        run: ./.claude/scripts/check-done.ps1 -Base origin/${{ github.base_ref }}

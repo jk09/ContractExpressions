@@ -3,7 +3,7 @@
   <!-- FsCheck property tests that use the ContractCheck contracts of ContractCheck.Samples as their oracle.
        Created by .claude/skills/dbc-property-tests/scripts/init-property-tests.ps1. -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>$(TestTargetFrameworks)</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -30,6 +30,7 @@
     <ProjectReference Include="..\ContractCheck.Samples\ContractCheck.Samples.csproj" />
     <ProjectReference Include="..\ContractCheck\ContractCheck.csproj" />
     <ProjectReference Include="..\ContractCheck.FsCheck\ContractCheck.FsCheck.csproj" />
+    <ProjectReference Include="..\ContractCheck.Analyzers\ContractCheck.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>
