@@ -6,12 +6,12 @@
 | --- | --- |
 | **Feature name** | ContractCheck improvements: analyzer, checking levels, precondition-inheritance warning, DI + CI, ref/out contracts, generated call sequences |
 | **Spec ID** | canyon-tundra-ymf1vj |
-| **Status** | Active |
+| **Status** | Done |
 | **Author** | Claude (Claude Code session for jk09) |
 | **Owner** | jk09 |
 | **Reviewers** | jk09 |
 | **Created on** | 2026-10-11 18:22 +00:00 |
-| **Last updated** | 2026-10-12 02:15 +00:00 |
+| **Last updated** | 2026-10-12 02:35 +00:00 |
 | **Affected features** | `ContractCheck/Features/Definitions` (ref/out placeholders, `Dbc.HasContracts`), `ContractCheck/Features/Enforcement` (checking levels, non-generic `Dbc.Make`, by-ref values); new projects `ContractCheck.Analyzers`, `ContractCheck.DependencyInjection`; `ContractCheck.FsCheck` (generated call sequences); `.github/workflows` (new) |
 | **Target release** | ContractCheck 0.1.0 (first release). FR 4–7, 11 and 15–17 merged with jk09/ContractExpressions#5; the rest follows in a second pull request from the same branch |
 | **Related links** | amber-harbor-v9p6ri (fusion spec); quartz-willow-x7kgtw (source-generated proxies, later) |
@@ -187,3 +187,5 @@
   (`TestAllFrameworks=true` → net8.0;net9.0;net10.0). The session hooks (`active-spec.ps1`, `check-done.ps1`) now handle
   several active specs; the CI docs job runs `check-done.ps1 -Base origin/<base>`.
 - **Docs:** the FsCheck reference no longer claims floats are never exactly 0 (`CheckCalls` produced 0 and -0).
+- **Done:** the rest merged with jk09/ContractExpressions#6 on 2026-10-12 (merge commit 4d1f7a0). ADRs 0006–0010 are
+  still Proposed, awaiting the owner's decision.
